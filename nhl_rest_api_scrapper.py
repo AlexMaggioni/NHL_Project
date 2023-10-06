@@ -21,17 +21,26 @@ from pregex.meta.essentials import Integer
 from pregex.core.classes import AnyLetter, AnyDigit
 from pregex.core.assertions import MatchAtEnd,MatchAtStart,EnclosedBy
 
+from loguru import logger
 
+logger.add(
+    "log_file/data_acquisition.log", 
+    compression="zip", 
+    level='DEBUG',
+    format='<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> <green>{elapsed}</green> | <level>{level: <8}</level> | <cyan>{file}</cyan>:<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>'
+)
+
+logger.remove(0)
  
-@dataclass(frozen=True)
+@dataclass
 class Base_Scrapper:
+
+    path : str
+    query : Dict[str,str]
 
     scheme: str = 'https'
     netloc: str = 'statsapi.web.nhl.com'
     root_path : Path = Path('/api/v1/')
-    path : str
-    query : Dict[str,str]
-
     output_format : Tuple[str] = field(
         init=False,
         default=('json','binary','text','raw')
@@ -49,18 +58,24 @@ class Base_Scrapper:
                         YOU SPECIFIED {output_format}
                                ''')
         
+        if save_local is not None and Path(save_local).exists():
+            logger.info(f'File already locally existing {save_local}. Skipping download {self.path}{self.query} ')
+            return self._read_content_from_local(save_local,output_format)
+
         url_to_fetch = urllib.parse.urlunparse(
             (
                 self.scheme,
                 self.netloc,
                 self.path,
                 None, 
-                urllib.parse.urlencode(self.query),
+                self.query,
                 None
             )
         )
     
         response = requests.get(url=url_to_fetch)
+
+        logger.info(f'GET Request happened successfully at {response.url} , {response.status_code}')
 
         self.response = None
 
@@ -78,10 +93,29 @@ class Base_Scrapper:
 
         return self.response
 
+    def _read_content_from_local(
+            self,
+            save_local : str,
+            output_format : str):
+        if output_format=='json':
+            with open(save_local, 'r') as file:
+                return json.load(file)
+
+        if output_format=='binary':
+            with open(save_local, 'rb') as file:
+                return file.read(save_local)
+
+        if output_format=='text':
+            with open(save_local, 'r') as file:
+                return file.read(save_local)
+
+        if isinstance(self.response,urllib3.response.HTTPResponse):
+            raise NotImplementedError('DONT KNOW HOT TO SERIALIZE A urllib3.response.HTTPResponse PYTHON OBJECT')
+
     def _save_local(self, path):
         if isinstance(self.response,dict):
             with open(path, 'w') as file:
-                json.dump(response.json(), file, indent=4)
+                json.dump(self.response, file, indent=4)
 
         if isinstance(self.response,bytes):
             with open(path, 'wb') as file:
@@ -120,7 +154,7 @@ class Game_endpoints_Scrapper(Base_Scrapper):
         To understand more on the verification done in this function 
         go here https://gitlab.com/dword4/nhlapi/-/blob/master/stats-api.md?ref_type=heads#game-endpoints
         '''
-        super().__init__()
+        super().__init__(path,query_parameters)
         
         token_1, game_id, *_  = path.split('/')
         
@@ -144,8 +178,8 @@ class Game_endpoints_Scrapper(Base_Scrapper):
         self.path = str(self.root_path / path)
 
     def _verify_endpoint_path(self, endpoint_path : str) -> None:
-        if self.ALLOWED_ENDPOINT_PATH.get_matches() == []:
-            print(f'Endpoint path provided by user {endpoint_path} is correct')
+        if self.ALLOWED_ENDPOINT_PATH.get_matches(endpoint_path) != []:
+            logger.info(f'Endpoint path provided by user is correct : {self.root_path}/{endpoint_path} ')
 
             self.subpath_if_game_endpoint, *_ = self.ALLOWED_ENDPOINT_PATH.get_captures(endpoint_path)[0]
             
@@ -158,8 +192,8 @@ class Game_endpoints_Scrapper(Base_Scrapper):
                                 ''')
         
     def _verify_game_id(self, game_id) -> None:
-        if self.GAME_ID.get_matches(game_id) == []:
-            print(f'Game id provided by user {game_id} is correct')
+        if self.GAME_ID.get_matches(game_id) != []:
+            logger.info(f'Game id provided by user {game_id} is correct')
             self.season_of_the_game, self.type_of_game, self.game_number = self.GAME_ID.get_captures(game_id)[0]
         else:
             raise RuntimeError(f'''
@@ -192,7 +226,7 @@ class Schedule_endpoints_Scrapper(Base_Scrapper):
         To understand more on the verification done in this function 
         go here https://gitlab.com/dword4/nhlapi/-/blob/master/stats-api.md?ref_type=heads#game-endpoints
         '''
-        super().__init__()
+        super().__init__(path,query_parameters)
 
         self._verify_endpoint_path(path)
 
@@ -202,8 +236,8 @@ class Schedule_endpoints_Scrapper(Base_Scrapper):
         self.path = str(self.root_path / path)
 
     def _verify_endpoint_path(self, endpoint_path : str) -> None:
-        if self.ALLOWED_ENDPOINT_PATH.get_matches() == []:
-            print(f'Endpoint path provided by user {endpoint_path} is correct')            
+        if self.ALLOWED_ENDPOINT_PATH.get_matches(endpoint_path) != []:
+            logger.info(f'Endpoint path provided by user is correct : {self.root_path}/{endpoint_path} ')            
 
         else:
             raise RuntimeError(f'''
@@ -214,7 +248,7 @@ class Schedule_endpoints_Scrapper(Base_Scrapper):
         
     def _verify_game_id(self, game_id) -> None:
         if self.GAME_ID.get_matches(game_id) == []:
-            print(f'Game id provided by user {game_id} is correct')
+            logger.info(f'Game id provided by user {game_id} is correct')
             self.season_of_the_game, self.type_of_game, self.game_number = self.GAME_ID.get_captures(game_id)[0]
         else:
             raise RuntimeError(f'''
@@ -225,7 +259,9 @@ class Schedule_endpoints_Scrapper(Base_Scrapper):
 
 if __name__=='__main__':
 
-    for year in range(2016,2021):
+    from tqdm import tqdm, trange
+    
+    for year in trange(2016,2021,desc=f'Iterating on year', unit=) :
         response = Schedule_endpoints_Scrapper(
             path='schedule',
             query_parameters={
@@ -238,7 +274,10 @@ if __name__=='__main__':
         for date_data in response['dates']:
             for game in date_data['games']:
                 game_ids.append(game['gamePk'])
-
-        for id in game_ids:
-            path_save_local = Path('./data') / year / f'{id}.json'
-            Game_endpoints_Scrapper(f'game/{id}/feed/live/').fetch(save_local=path_save_local)
+        with tqdm(total=len(game_ids)) as pbar:
+            for id in game_ids:
+                path_save_local = Path('./data') / str(year) / f'{id}.json'
+                path_save_local.parent.mkdir(parents=True,exist_ok=True)
+                pbar.set_description(f'Fetching game/{id}/feed/live saved at {path_save_local}')
+                pbar.update(1)
+                Game_endpoints_Scrapper(f'game/{id}/feed/live').fetch(save_local=path_save_local)
