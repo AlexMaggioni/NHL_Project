@@ -1,6 +1,5 @@
 data/
 venv/
-blog_website/_site/
 log_file/
 __pycache__/
-blog_website/_site
+blog_website/_site/
