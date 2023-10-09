@@ -260,8 +260,8 @@ class Schedule_endpoints_Scrapper(Base_Scrapper):
 if __name__=='__main__':
 
     from tqdm import tqdm, trange
-    
-    for year in trange(2016,2021,desc=f'Iterating on year', unit=) :
+
+    for year in trange(2016,2021,desc=f'Iterating on year') :
         response = Schedule_endpoints_Scrapper(
             path='schedule',
             query_parameters={
