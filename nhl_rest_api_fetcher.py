@@ -26,6 +26,10 @@ from pregex.core.assertions import MatchAtEnd, MatchAtStart, EnclosedBy
 
 from loguru import logger
 
+def generate_url_path(*parts, use_posix=False):
+    path = Path(*parts)
+    return path.as_posix() if use_posix else str(path)
+
 logger.add(
     "log_file/data_acquisition.log",
     compression="zip",
@@ -67,12 +71,12 @@ class Base_Fetcher:
 
         if save_local is not None and Path(save_local).exists():
             logger.info(
-                f'File already locally existing {save_local}. Skipping download {self.path}{self.query if self.query else ""} '
+                f'File already locally existing {save_local}. Skipping download {generate_url_path(self.path, use_posix=True)}{self.query if self.query else ""} '
             )
             return self._read_content_from_local(save_local, output_format)
 
         url_to_fetch = urllib.parse.urlunparse(
-            (self.scheme, self.netloc, self.path, None, self.query, None)
+            (self.scheme, self.netloc, generate_url_path(self.path, use_posix=True), None, self.query, None)
         )
 
         response = requests.get(url=url_to_fetch)
@@ -201,7 +205,7 @@ class Game_endpoints_Fetcher(Base_Fetcher):
         if query_parameters is not None:
             self.query = urllib.parse.urlencode(query_parameters)
 
-        self.path = str(self.root_path / path)
+        self.path = generate_url_path(self.root_path, path, use_posix=True)
 
     def _verify_endpoint_path(self, endpoint_path: str) -> None:
         if self.ALLOWED_ENDPOINT_PATH.get_matches(endpoint_path) != []:
@@ -268,7 +272,7 @@ class Schedule_endpoints_Fetcher(Base_Fetcher):
         if query_parameters is not None:
             self.query = urllib.parse.urlencode(query_parameters)
 
-        self.path = str(self.root_path / path)
+        self.path = generate_url_path(self.root_path, path, use_posix=True)
 
     def _verify_endpoint_path(self, endpoint_path: str) -> None:
         if self.ALLOWED_ENDPOINT_PATH.get_matches(endpoint_path) != []:
@@ -290,6 +294,7 @@ def regular_playoff_p_by_p_data_per_season():
     from tqdm import tqdm, trange
 
     for year in trange(2016, 2021, desc=f"Iterating on year"):
+        
         response = Schedule_endpoints_Fetcher(
             path="schedule",
             query_parameters={"season": f"{year}{year+1}", "gameType": "R,P"},
@@ -299,6 +304,7 @@ def regular_playoff_p_by_p_data_per_season():
         for date_data in response["dates"]:
             for game in date_data["games"]:
                 game_ids.append(game["gamePk"])
+
         with tqdm(total=len(game_ids)) as pbar:
             for id in game_ids:
                 path_save_local = Path("./data") / str(year) / f"{id}.json"
