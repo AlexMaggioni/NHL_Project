@@ -23,55 +23,57 @@ class JsonParser:
         gameData = data["gameData"]
         liveData = data["liveData"]["plays"]["allPlays"]
 
-        GAME_ID = gameData.get("game", {}).get("pk", None)
-        SEASON = gameData.get("game", {}).get("season", None)
-        GAME_TYPE = gameData.get("game", {}).get("type", None)
-        GAME_DATE = datetime.datetime.strptime(gameData.get("datetime", {}).get("dateTime", ""), "%Y-%m-%dT%H:%M:%SZ").strftime("%Y-%m-%d") if gameData.get("datetime", {}).get("dateTime", None) else None
-        HOME_TEAM = gameData.get("teams", {}).get("home", {}).get("abbreviation", None)
-        AWAY_TEAM = gameData.get("teams", {}).get("away", {}).get("abbreviation", None)
+        gameId = gameData.get("game", {}).get("pk", None)
+        season = gameData.get("game", {}).get("season", None)
+        gameType = gameData.get("game", {}).get("type", None)
+        gameDate = datetime.datetime.strptime(gameData.get("datetime", {}).get("dateTime", ""), "%Y-%m-%dT%H:%M:%SZ").strftime("%Y-%m-%d") if gameData.get("datetime", {}).get("dateTime", None) else None
+        homeTeam = gameData.get("teams", {}).get("home", {}).get("abbreviation", None)
+        awayTeam = gameData.get("teams", {}).get("away", {}).get("abbreviation", None)
 
         rows = []
         base_data = {
-            "GAME_ID": GAME_ID,
-            "SEASON": SEASON,
-            "GAME_TYPE": GAME_TYPE,
-            "GAME_DATE": GAME_DATE,
-            "HOME_TEAM": HOME_TEAM,
-            "AWAY_TEAM": AWAY_TEAM,
+            "gameId": gameId,
+            "season": season,
+            "gameType": gameType,
+            "gameDate": gameDate,
+            "homeTeam": homeTeam,
+            "awayTeam": awayTeam,
         }
 
         for play in liveData:
             row_data = base_data.copy()
 
             if play["result"]["eventTypeId"] in ["GOAL", "SHOT"]:
-                PERIOD = play.get("about", {}).get("period", None)
-                PERIOD_TIME = play.get("about", {}).get("periodTime", None)
-                BY = play.get("team", {}).get("triCode", None)
-                EVENT_TYPE = play.get("result", {}).get("eventTypeId", None)
-                COORDINATES = (play.get("coordinates", {}).get("x", None), 
+                period = play.get("about", {}).get("period", None)
+                periodTime = play.get("about", {}).get("periodTime", None)
+                byTeam = play.get("team", {}).get("triCode", None)
+                eventType = play.get("result", {}).get("eventTypeId", None)
+                shotType = play.get("result", {}).get("secondaryType", None)
+                coordinates = (play.get("coordinates", {}).get("x", None), 
                                play.get("coordinates", {}).get("y", None))
-                STRENGTH = play.get("result", {}).get("strength", {}).get("code", None)
-                EMPTY_NET = play.get("result", {}).get("emptyNet", None)
+                strength = play.get("result", {}).get("strength", {}).get("code", None)
+                emptyNet = play.get("result", {}).get("emptyNet", None)
 
-                SHOOTER_NAME = None
-                GOALIE_NAME = None  
+                shooterName = None
+                goalieName = None  
 
                 for player in play.get("players", []):
                     if player.get("playerType", "") in ["Scorer", "Shooter"]:
-                        SHOOTER_NAME = player.get("player", {}).get("fullName", None)
+                        shooterName = player.get("player", {}).get("fullName", None)
                     elif player.get("playerType", "") == "Goalie":
-                        GOALIE_NAME = player.get("player", {}).get("fullName", None)
+                        goalieName = player.get("player", {}).get("fullName", None)
             
                 row_data.update({
-                    "PERIOD": PERIOD,
-                    "PERIOD_TIME": PERIOD_TIME,
-                    "BY": BY,
-                    "EVENT_TYPE": EVENT_TYPE,
-                    "COORDINATES": COORDINATES,
-                    "SHOOTER_NAME": SHOOTER_NAME,
-                    "GOALIE_NAME": GOALIE_NAME,
-                    "STRENGTH": STRENGTH,
-                    "EMPTY_NET": EMPTY_NET,
+                    "period": period,
+                    "periodTime": periodTime,
+                    "byTeam": byTeam,
+                    "eventType": eventType,
+                    "shotType": shotType,
+                    "coordinates": coordinates,
+                    "shooterName": shooterName,
+                    "goalieName": goalieName,
+                    "strength": strength,
+                    "emptyNet": emptyNet,
                 })
 
                 rows.append(row_data)
