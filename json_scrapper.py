@@ -23,8 +23,8 @@ class JsonParser:
         gameData = data["gameData"]
         liveData = data["liveData"]["plays"]["allPlays"]
 
-        gameId = gameData.get("game", {}).get("pk", None)
-        season = gameData.get("game", {}).get("season", None)
+        gameId = int(gameData.get("game", {}).get("pk", None))
+        season = int(gameData.get("game", {}).get("season", None)[0:4])
         gameType = gameData.get("game", {}).get("type", None)
         gameDate = datetime.datetime.strptime(gameData.get("datetime", {}).get("dateTime", ""), "%Y-%m-%dT%H:%M:%SZ").strftime("%Y-%m-%d") if gameData.get("datetime", {}).get("dateTime", None) else None
         homeTeam = gameData.get("teams", {}).get("home", {}).get("abbreviation", None)
@@ -44,15 +44,16 @@ class JsonParser:
             row_data = base_data.copy()
 
             if play["result"]["eventTypeId"] in ["GOAL", "SHOT"]:
-                period = play.get("about", {}).get("period", None)
+
+                period = int(play.get("about", {}).get("period", None))
                 periodTime = play.get("about", {}).get("periodTime", None)
                 byTeam = play.get("team", {}).get("triCode", None)
                 eventType = play.get("result", {}).get("eventTypeId", None)
                 shotType = play.get("result", {}).get("secondaryType", None)
-                coordinates = (play.get("coordinates", {}).get("x", None), 
-                               play.get("coordinates", {}).get("y", None))
-                strength = play.get("result", {}).get("strength", {}).get("code", None)
-                emptyNet = play.get("result", {}).get("emptyNet", None)
+                coordinateX = play.get("coordinates", {}).get("x", None)
+                coordinateY = play.get("coordinates", {}).get("y", None)
+                strength = play.get("result", {}).get("strength", {}).get("code", None) == "EVEN"
+                emptyNet = play.get("result", {}).get("emptyNet", False)
 
                 shooterName = None
                 goalieName = None  
@@ -69,7 +70,8 @@ class JsonParser:
                     "byTeam": byTeam,
                     "eventType": eventType,
                     "shotType": shotType,
-                    "coordinates": coordinates,
+                    "coordinateX": coordinateX,
+                    "coordinateY": coordinateY,
                     "shooterName": shooterName,
                     "goalieName": goalieName,
                     "strength": strength,
@@ -78,7 +80,9 @@ class JsonParser:
 
                 rows.append(row_data)
 
-        return pd.DataFrame(rows)
+        df = pd.DataFrame(rows)
+        
+        return df
 
     def __add__(self, other):
         if not isinstance(other, JsonParser):
@@ -89,7 +93,7 @@ class JsonParser:
     @staticmethod
     def load_all_seasons():
         if os.path.exists("clean_data.csv"):
-            df = pd.read_csv("clean_data.csv")
+            df = pd.read_csv("clean_data.csv", parse_dates=["gameDate"])
             print("DataFrame loaded from 'clean_data.csv'")
             return df
 
