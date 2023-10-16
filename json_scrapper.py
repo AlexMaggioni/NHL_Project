@@ -31,7 +31,6 @@ class JsonParser:
         homeTeam = gameData.get("teams", {}).get("home", {}).get("abbreviation", None)
         awayTeam = gameData.get("teams", {}).get("away", {}).get("abbreviation", None)
 
-        # Convert rinkSide list into a dictionary for easy lookup
         rink_side_dict = {}
         for period_info in rinkSide:
             period_num = period_info.get('num', None)
