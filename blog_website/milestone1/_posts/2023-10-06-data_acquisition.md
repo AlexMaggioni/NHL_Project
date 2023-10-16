@@ -9,29 +9,33 @@ La logique de telechargement des donnees est completement gere par le fichier `n
 
 ## How to use it
 
-* First of all, prepare our env by installing the requirements:
+* First of all, prepare your env by installing the requirements:
+
 ```bash
 python -m venv venv_NHL_API_fetcher
 pip install -r requirements.txt
 ```
 
 * Then, you need to tweak the values inside the `.env` file.
-```bash 
+
+```bash
 # .env file example
 DATA_FOLDER = './data/' # folder where data will be stored
 LOGGING_FILE = './log_file/' # folder where logs file will be stored
 ```
 
 * Then, you can run the script with the following command:
+
 ```bash
 python nhl_rest_api_fetcher.py
 ```
 
-This is simple as that! 
+This is simple as that!
 
 The script will download for each season between 2016-2020, every plays of every playoffs and regular-season games.
 
 The resulting data will be stored in the `DATA_FOLDER` folder, in the following structure:
+
 ```
 data
 ├── 2016
@@ -44,6 +48,7 @@ data
 ...
 
 ```
+
 where each file is a json file containing every play-by-play data of a game.
 If a json file already exists, the script will not download it again, so you can run the script multiple times without worrying about downloading the same data twice.
 
@@ -54,8 +59,8 @@ Besides this, the script will also outputs logging files in the `log_file` folde
 
 ## How it works
 
->We really thoroughly commented and explains every part of the code, as much as we can, 
->    so we hope that by checking the code with a global overlook will be sufficient for more details.
+> We really thoroughly commented and explains every part of the code, as much as we can,
+> so we hope that by checking the code with a global overlook will be sufficient for more details.
 
 But here is the header paragraph of the script giving a brief overview of the script scructure:
 
