@@ -5,9 +5,22 @@ import datetime
 import os
 
 class JsonParser:
+    """
+    Class to Parse the json files from the NHL API to construct a DataFrame.
+    
+    For now, the solel useful use of this class is to instantiate it via the static method `load_all_seasons`.
+    """    
 
-    def __init__(self, path=None, df=None):
-        # You might either initialize with a path or with an existing DataFrame.
+    def __init__(
+            self, 
+            path : str = None, 
+            df : pd.DataFrame =None) -> None:
+        """Either initialize with a path or with an existing DataFrame.
+
+        Args:
+            path (str, optional): path_to_a_DataFrame. Defaults to None.
+            df (pd.DataFrame, optional): pandas Dataframe. Defaults to None.
+        """        
         self.path = path
         if df is not None:
             self.df = df
@@ -16,7 +29,19 @@ class JsonParser:
         else:
             self.df = pd.DataFrame()
 
+    # TODO :    def safe_getitem_dict(
+    #         self, 
+    #         dict, 
+    #         list_key, 
+    #         leaf_value_default
+    #     ):
+
+
     def parse_json_file(self):
+        '''
+        The most important function of the class.
+        Parse the json file and return a DataFrame containing the plays.
+        '''
         with open(self.path, "r") as f:
             data = json.load(f)
 
@@ -61,7 +86,10 @@ class JsonParser:
                 shotType = play.get("result", {}).get("secondaryType", None)
                 coordinateX = play.get("coordinates", {}).get("x", None)
                 coordinateY = play.get("coordinates", {}).get("y", None)
-                strength = play.get("result", {}).get("strength", {}).get("code", None) == "EVEN"
+ 
+                # jq request to see `.liveData.plays.allPlays.[] | select(.result.eventTypeId=="GOAL") | .result.strength | keys`
+                strength = play.get("result", {}).get("strength", None) .get("code", None)  if play["result"]["eventTypeId"]=='GOAL' else None
+                
                 emptyNet = play.get("result", {}).get("emptyNet", False)
 
                 shooterName = None
@@ -106,6 +134,12 @@ class JsonParser:
 
     @staticmethod
     def load_all_seasons():
+        '''
+        This the main function through which any object should be instantiated.
+
+        It will parse every json file in the `./data/` folder and
+            leveraing the `__add__` method, it will return a big DataFrame containing all the plays.
+        '''
         if os.path.exists("clean_data.csv"):
             df = pd.read_csv("clean_data.csv", parse_dates=["gameDate"])
             print("DataFrame loaded from 'clean_data.csv'")
