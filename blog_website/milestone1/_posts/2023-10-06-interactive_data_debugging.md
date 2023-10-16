@@ -5,7 +5,7 @@ title: Interactive Data Debugging Tool
 ---
 # Interactive Data Debugging Tool presentation
 
-![1697479682389](image/2023-10-06-interactive_data_debugging/1697479682389.png)
+![**SCREENSHOT OF THE TOOL IPYWIDGETS**](./image/2023-10-06-interactive_data_debugging/1697479682389.png)
 
 > L'outil permet de selectionner (l'ordre de selection est important car le choix d'une valeur d'un widget en impacte un autre):
 >
