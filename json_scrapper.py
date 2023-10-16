@@ -22,6 +22,7 @@ class JsonParser:
 
         gameData = data["gameData"]
         liveData = data["liveData"]["plays"]["allPlays"]
+        rinkSide = data["liveData"]["linescore"]["periods"]
 
         gameId = int(gameData.get("game", {}).get("pk", None))
         season = int(gameData.get("game", {}).get("season", None)[0:4])
@@ -29,6 +30,14 @@ class JsonParser:
         gameDate = datetime.datetime.strptime(gameData.get("datetime", {}).get("dateTime", ""), "%Y-%m-%dT%H:%M:%SZ").strftime("%Y-%m-%d") if gameData.get("datetime", {}).get("dateTime", None) else None
         homeTeam = gameData.get("teams", {}).get("home", {}).get("abbreviation", None)
         awayTeam = gameData.get("teams", {}).get("away", {}).get("abbreviation", None)
+
+        rink_side_dict = {}
+        for period_info in rinkSide:
+            period_num = period_info.get('num', None)
+            rink_side_dict[period_num] = {
+                'home': period_info.get('home', {}).get('rinkSide', None),
+                'away': period_info.get('away', {}).get('rinkSide', None)
+            }
 
         rows = []
         base_data = {
@@ -63,7 +72,12 @@ class JsonParser:
                         shooterName = player.get("player", {}).get("fullName", None)
                     elif player.get("playerType", "") == "Goalie":
                         goalieName = player.get("player", {}).get("fullName", None)
-            
+
+                if period == 5:
+                    row_data['rinkSide'] = 'Shootout'
+                else:
+                    row_data['rinkSide'] = rink_side_dict.get(period, {}).get('home' if byTeam == homeTeam else 'away', None)
+
                 row_data.update({
                     "period": period,
                     "periodTime": periodTime,
