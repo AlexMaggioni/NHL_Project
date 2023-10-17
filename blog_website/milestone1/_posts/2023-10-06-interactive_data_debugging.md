@@ -7,14 +7,13 @@ title: Interactive Data Debugging Tool
 
 ![**SCREENSHOT OF THE TOOL IPYWIDGETS**](./image/2023-10-06-interactive_data_debugging/1697479682389.png)
 
-> L'outil permet de selectionner (l'ordre de selection est important car le choix d'une valeur d'un widget en impacte un autre):
->
-> 1. La Saison de NHL
-> 2. Le type de matchs - 2 -> Regular, 3 -> Playoff (dans notre cas nous avons juste des donnees pour des regular et playoff games, mais facilement extensible ...)
-> 3. Le Game ID
-> 4. Le Play ID
->
-> afin d'afficher les coordonnees de ce play et son dictionnaire associe et aussi, des infos a propos du game selectionne.
+L'outil permet de selectionner:
+* La Saison de NHL
+* Le type de matchs (2 pour saison régulière et 3 pour séries éléminatoires)
+* Le Game ID
+* Le Play ID
+
+L'outils affiche aussi certaines informations utile sur l'évènement en format de dictionnaire.
 
 # Code de l'outil
 
