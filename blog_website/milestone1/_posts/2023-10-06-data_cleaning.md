@@ -4,26 +4,36 @@ author: Equipe A07
 title: Data Cleaning
 ---
 
-# Raw json data to Dataframe
+# Transformation de données brutes JSON en DataFrame
 
 ![SCREENSHOT OF THE DATAFRAME](image/2023-10-06-data_cleaning/1697482322088.png "Dataframe head exctract")
 
-## Handling of 'strength' value
+# Traitement de la valeur 'strength'
 
-Pour ajouter des informations quantitatives (savoir plus que si le play sa passe en contexte de **sur-nombre, sous-nombre, ou egal**) pour le **strength** d'un play, on pourrait acceder a la liste des `penaltyPlays`  (disponible sous  `['liveData']['plays']['penaltyPlays']`). 
+La valeur « strength » dans les données indique seulement si le jeu se déroule en situation d'égalité, en supériorité numérique ou en infériorité numérique. Cependant, cette indication n'est pas suffisante pour comprendre la dynamique exacte du jeu.
 
-Un `penaltyPlay` possede le temps auquel la penalite s'est realise, la duree de la penalite, et le joueur impacte. 
+Pour ajouter une dimension quantitative à la force d'un play (au-delà de savoir si c'est en sur-nombre, sous-nombre ou égalité), nous pouvons explorer la liste des penaltyPlays, accessible via ['liveData']['plays']['penaltyPlays']. Un penaltyPlay nous fournit des informations clés : le temps de la pénalité, sa durée et le joueur pénalisé.
 
-Donc, comme chaque play possede le temps auquel le play s'est realise, on peut savoir si le play s'est deroule pendant une penalite affectant son equipe (**sous-nombre**) ou non (**sur-nombre**).
+Chaque play est également horodaté. En exploitant ces informations temporelles, on peut déduire si un play donné s'est déroulé pendant une pénalité, et ainsi qualifier le contexte numérique précis (par exemple, 5 contre 4, 4 contre 3...). Une nouvelle colonne, appelée numerical_strength, pourrait ainsi être ajoutée, codifiant ces situations avec des notations comme '4vs1', '5vs4', etc.
 
-Ainsi, il serait facile de rajouter une colonne *numerical_strength* de type **str** avec comme valeurs ('4vs1',...)
+# Ajout de caractéristiques supplémentaires
 
-## Additional characteristics
+Lors de l'analyse de données de jeu, une étape cruciale consiste à enrichir notre compréhension en introduisant des caractéristiques supplémentaires basées sur les informations existantes. Avant de détailler ces caractéristiques, il est essentiel de noter que, pour chacune d'elles, l'utilisation de la fonction utils.py::unify_coordinates_referential est primordiale afin d'aligner les coordonnées selon une même orientation commune du terrain. Cette étape préliminaire garantit la cohérence et l'exactitude des mesures dérivées. Voici les caractéristiques proposées :
 
-Plusieurs caracteristiques peuvent etre interessantes a rajouter:
+* **Angle du tir (shot_angle)** : 
 
-1. `dist_from_goal` : Distance par rapport au but . Tout d'abord, en utilisant la fonction  `utils.py::unify_coordinates_referential`, unifier les coordonnees selon un meme sens de jeu et calculer au but (qui serait pris au point **[98,0]**)
-2. `is_counter_attack_goal` : Boolean Column , "True" si un play de type **GOAL qui s'est realise dans un contexte de contre-attaque.** On pourrait avoir cette information lors de la construction du Dataframe, par exemple, en regardant si le play juste avant le **GOAL** :
-   * est de type **TAKEAWAY** et (`["result"]["eventTypeId"]`)
-   * que le **TAKEAWAY** passe dans le cote defensif de la team qui a fait le play de type **GOAL** (facile a determiner via les coordonnees et la cle `rinkSide` )
-3. `is_shot_rebound` : Boolean Column , "True" si un play de type **SHOT a donne lieu a un GOAL sur le prochain PLAY.**
+   L'angle sous lequel un tir est effectué peut influencer sa chance de succès. En calculant cet angle en fonction des coordonnées du tir et de la position fixe du but, nous pouvons obtenir des perspectives sur les zones préférées des tireurs et les angles de tir les plus propices.
+
+* **Distance par rapport au but (dist_from_goal)** : 
+
+   Cette métrique mesure la distance entre le point d'où le tir est lancé et le but. En calculant cette distance à partir de la position fixe du but, soit le point [98,0], nous obtenons une indication sur la proximité et, potentiellement, sur la qualité du tir.
+
+* **Contre-attaques (is_counter_attack)** : 
+
+   Une contre-attaque se caractérise souvent par une récupération dans sa propre moitié de terrain, suivie d'une avancée rapide vers le but adverse. Pour identifier un tel scénario, nous examinerons le play précédant le tir : s'il est de type TAKEAWAY et s'est déroulé dans la moitié défensive de l'équipe qui effectue le play, alors nous avons une situation de contre-attaque.
+
+* **Rebonds (is_shot_rebound)** : 
+
+   Dans le hockey, un rebond correspond à un tir qui, après avoir été initialement arrêté ou dévié par le gardien, est rapidement suivi d'un autre tir. Pour cerner les rebonds, nous suggérons d'examiner le temps entre deux tirs consécutifs. Cette approche repose sur l'hypothèse qu'un rebond augmente la probabilité de marquer. En utilisant des visualisations et des tests statistiques, nous pourrions déterminer si une augmentation statistiquement significative des chances de marquer existe pour de courts intervalles de temps entre tirs. Si nous observons une telle tendance, tout tir ou but survenant dans un délai inférieur à un certain seuil pourrait être classé comme un "rebond", car il est suivi d'une seconde tentative avec une haute probabilité de marquer.
+
+Grâce à l'introduction de ces nouvelles caractéristiques, notre analyse devient plus nuancée, nous permettant de mieux saisir les dynamiques et stratégies à l'œuvre lors des matchs.
