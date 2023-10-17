@@ -38,14 +38,6 @@ def plot_referential_differences(
         initial_coordinates_df: pd.DataFrame,
         unified_coordinates_df: pd.DataFrame,
 ):
-    '''
-    Function to plot the differences between the coordinates before and after the unification of the referential.
-
-    Plot two ScatterPlots with the initial coordinates with two different colors (one for each rinkSide)
-        and the other one with the unified coordinates 
-    
-    In the second plot, keep the same colors of the point CONSISTENT regarding the rinkSide with respect to the first plot.
-    '''
 
     from plotly.subplots import make_subplots
     import plotly.graph_objects as go
@@ -105,6 +97,20 @@ def plot_referential_differences(
 
     fig.update_layout(height=600, width=800, title_text="Side By Side Subplots")
     fig.show()
+
+
+def is_not_nested_dict(d):
+    return not isinstance(d, dict) or not any(isinstance(i, dict) for i in d.values())
+
+def safe_getitem_nested_dict(dict, list_key, leaf_value_default=None):
+    print(dict.keys(), list_key, len(list_key), leaf_value_default)
+    if is_not_nested_dict(dict) or len(list_key) == 1:
+        print('not nested dict')
+        print(dict, list_key, leaf_value_default)
+        print('toto  ', dict.get(list_key[0], leaf_value_default))
+        return dict.get(list_key[0], leaf_value_default)
+    else:
+        return safe_getitem_nested_dict(dict[list_key[0]], list_key[1:], leaf_value_default)
 
 if __name__ == '__main__':
 
