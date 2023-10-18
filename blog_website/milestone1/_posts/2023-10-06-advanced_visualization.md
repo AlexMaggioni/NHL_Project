@@ -24,15 +24,15 @@ There are many interpretations possible from those plot, for example offensive-o
 
 ## Colorado
 
-[colorado.html](./adv_viz_interactive_plot/teams/colorado.html)
+[Colorado](./adv_viz_interactive_plot/teams/colorado.html)
 
 
 # Comparison Buffalo / Tampa Bay
 
 ## Buffalo
 
-[buffalo.html](./adv_viz_interactive_plot/teams/buffalo.html)
+[Buffalo](./adv_viz_interactive_plot/teams/buffalo.html)
 
 ## Tampa Bay
 
-[tampa.html](./adv_viz_interactive_plot/teams/tampa.html.html)
+[Tampa](./adv_viz_interactive_plot/teams/tampa.html)
