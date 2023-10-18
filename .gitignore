@@ -4,3 +4,4 @@ log_file/
 __pycache__/
 blog_website/_site/
 conf/
+blog_website/Gemfile.lock
