@@ -1,4 +1,5 @@
 import pandas as pd
+from pathlib import Path
 
 def unify_coordinates_referential(
         df_with_coordinates: pd.DataFrame,
@@ -111,6 +112,14 @@ def safe_getitem_nested_dict(dict, list_key, leaf_value_default=None):
         return dict.get(list_key[0], leaf_value_default)
     else:
         return safe_getitem_nested_dict(dict[list_key[0]], list_key[1:], leaf_value_default)
+
+def generate_url_path(*parts, use_posix=False):
+    '''
+    Emerges from the problem of running this script on Windows and Linux.
+    Needed an OS-agnostic way to generate an url path (mainly used in the GET request endpoint path)
+    '''
+    path = Path(*parts)
+    return path.as_posix() if use_posix else str(path)
 
 if __name__ == '__main__':
 
