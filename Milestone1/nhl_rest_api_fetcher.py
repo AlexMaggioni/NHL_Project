@@ -446,7 +446,7 @@ def init_logger():
     logger.remove(0)
 
 if __name__ == "__main__":
-    if load_dotenv('.env',verbose=True):
+    if load_dotenv(Path(__file__).parent.parent / '.env',verbose=True):
         init_logger()
         regular_playoff_p_by_p_data_per_season()
     else:

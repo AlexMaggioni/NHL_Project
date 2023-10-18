@@ -1,3 +1,4 @@
+from pathlib import Path
 import pandas as pd
 import json
 from tqdm import tqdm
@@ -133,21 +134,17 @@ class JsonParser:
         return JsonParser(df=combined_df)
 
     @staticmethod
-    def load_all_seasons():
-        '''
-        This the main function through which any object should be instantiated.
-
-        It will parse every json file in the `./data/` folder and
-            leveraing the `__add__` method, it will return a big DataFrame containing all the plays.
-        '''
-        if os.path.exists("clean_data.csv"):
-            df = pd.read_csv("clean_data.csv", parse_dates=["gameDate"])
+    def load_all_seasons(path_csv):
+        
+        
+        if os.path.exists(path_csv):
+            df = pd.read_csv(path_csv, parse_dates=["gameDate"])
             print("DataFrame loaded from 'clean_data.csv'")
             return df
 
         base_parser = JsonParser()
 
-        all_seasons = os.listdir("./data/")
+        all_seasons = os.listdir(Path(path_csv).parent)
         for season in tqdm(all_seasons, desc="Processing seasons"):
             base_path = f"./data/{season}"
             all_games = os.listdir(base_path)
@@ -155,9 +152,16 @@ class JsonParser:
                 parser = JsonParser(base_path + f"/{game}")
                 base_parser = base_parser + parser
 
-        base_parser.df.to_csv("clean_data.csv", index=False)
+        base_parser.df.to_csv(path_csv, index=False)
         print("DataFrame saved to 'clean_data.csv'")
         return base_parser.df
 
 if __name__ == "__main__":
-    df = JsonParser.load_all_seasons()
+    from dotenv import load_dotenv
+    if load_dotenv(Path(__file__).parent.parent / '.env',verbose=True):
+        path_save_csv = Path(os.getenv('DATA_FOLDER')) / 'clean_data.csv'
+        df = JsonParser.load_all_seasons(path_save_csv)
+    else:
+        raise RuntimeError("COULD NOT LOAD THE .env FILE")
+
+    
