@@ -1,7 +1,11 @@
-data/
 venv/
 log_file/
 __pycache__/
 blog_website/_site/
 conf/
 blog_website/Gemfile.lock
+data/2016/
+data/2017/
+data/2018/
+data/2019/
+data/2020/
