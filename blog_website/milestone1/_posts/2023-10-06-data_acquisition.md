@@ -8,7 +8,7 @@ title: Brief Tutorial on Data Acquisition
 
 Les passionnés de hockey le savent bien : avoir accès à des données détaillées peut faire toute la différence. Dans ce guide, je vais vous montrer comment extraire les données play-by-play des matchs de la saison régulière et des séries éliminatoires pour les saisons 2016-2021 de la LNH. La logique de telechargement des donnees est completement gere par le fichier `nhl_rest_api_fetcher.py`.
 
-## Comment ça marche?
+## Comprendre la stucture de l'API
 
 ### 1. Décryptons le gameID:
 
@@ -26,9 +26,9 @@ L'API de la NHL nous permet d'accéder à une multitude de données. Nous commen
 
 Ensuite, avec les gameIDs obtenus, nous interrogeons l'endpoint "https://statsapi.web.nhl.com/api/v1/game/[GAME_ID]/feed/live/" pour récupérer les données play-by-play. Cette logique a été implémenter dans notre classe "Game_endpoints_Fetcher".
 
-### 3. Fonctionnement de notre code
+## Fonctionnement de notre code
 
-#### Base_Fetcher: La Classe Mère
+### Base_Fetcher: La Classe Mère
 
 La classe Base_Fetcher sert de fondation pour nos opérations de récupération de données. Elle offre la structure de base et les méthodes essentielles qui seront héritées et possiblement étendues par les sous-classes.
 
@@ -46,7 +46,7 @@ Si la méthode fetch() trouve qu'un fichier existe déjà localement, cette mét
 
 Cette méthode est utilisée pour sauvegarder la réponse de la requête GET localement. Elle peut gérer différents formats de données, et lancer une erreur si elle ne sait pas comment sérialiser un objet particulier. 
 
-#### Les Sous-Classes: Ajouter des Vérifications
+### Les Sous-Classes: Ajouter des Vérifications
 Même si la Base_Fetcher est très puissante par elle-même, il est nécessaire d'avoir des vérifications supplémentaires pour des cas spécifiques. C'est là que les sous-classes comme Game_endpoints_Fetcher et Schedule_endpoints_Fetcher entrent en jeu. Ces sous-classes héritent de Base_Fetcher et ajoutent des vérifications sur les entrées des utilisateurs. Cela garantit que l'URL est correcte avant de faire la requête et guident l'utilisateur pour une utilisation plus fluide et plus intuitive.
 
 Nous avons vraiment commenté et expliqué chaque partie du code, autant que possible. Donc, pour référence, vous pouvez directement aller lire le code si jamais il vous manque de détails.

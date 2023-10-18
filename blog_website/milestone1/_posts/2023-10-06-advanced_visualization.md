@@ -85,7 +85,7 @@ En comparant les deux années, il est évident que l'Avalanche a subi une transf
 
 <div id="plot-container">
     <iframe src="./adv_viz_interactive_plot/teams/tampa.html" width="100%" height="100%" style="border: none;"></iframe>
-
+</div>
 
 En examinant les plans de tir pour les Sabres de Buffalo et le Lightning de Tampa Bay, plusieurs observations pertinentes peuvent être faites.
 
