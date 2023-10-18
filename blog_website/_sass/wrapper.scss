@@ -1,8 +1,9 @@
 @charset "utf-8";
 
 .wrapper-main, .wrapper-header, .wrapper-footer {
-  width: 100%;
-  margin: 0 auto;
+  width: 100vw;
+  margin: auto;
+  margin-left: 200px;
   max-width: 900px;
 }
 
