@@ -30,13 +30,6 @@ class JsonParser:
         else:
             self.df = pd.DataFrame()
 
-    # TODO :    def safe_getitem_dict(
-    #         self, 
-    #         dict, 
-    #         list_key, 
-    #         leaf_value_default
-    #     ):
-
 
     def parse_json_file(self):
         '''
