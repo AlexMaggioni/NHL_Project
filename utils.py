@@ -121,6 +121,46 @@ def generate_url_path(*parts, use_posix=False):
     path = Path(*parts)
     return path.as_posix() if use_posix else str(path)
 
+
+def init_logger(log_file_path : str):
+    '''
+    Initialize the logger that will log into some files and not on stdout
+    We use the loguru library so it takes care of the rotation/renaming of the logs file 
+        and offer less boilerplate code than the standard logging library...
+    '''
+    from loguru import logger
+    import os
+    logger.add(
+        Path(os.getenv('LOGGING_FILE')) / log_file_path,
+        compression="zip",
+        level="DEBUG",
+        format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> <green>{elapsed}</green> | <level>{level: <8}</level> | <cyan>{file}</cyan>:<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+    )
+
+    if log_file_path == "nhl_rest_api_fetcher.log":
+        # Remove print on stdout (otherwise hide the progress bars) when executing "nhl_rest_api_fetcher.py"
+        logger.remove(0)
+
+    return logger
+
+import os
+from dotenv import load_dotenv
+
+def get_dotenv_file_to_load():
+    '''
+    Just to support the case if runnning inside a docker of the image nvcr.io/nvidia/pytorch:23.10-py3
+    '''
+    return '.env_docker' if os.getenv("RUNNING_IN_DOCKER") else '.env'
+
+def verify_dotenv_file(position_of_execution : Path):
+    file_dot_env_to_load = get_dotenv_file_to_load()
+    from rich import print
+    print(f"Loading {file_dot_env_to_load} file from {position_of_execution}")
+    if load_dotenv(position_of_execution / file_dot_env_to_load, verbose=True):
+        return True
+    else:
+        raise RuntimeError(f"COULD NOT LOAD THE {file_dot_env_to_load} FILE FROM {position_of_execution}")
+
 if __name__ == '__main__':
 
     data = pd.read_csv("clean_data.csv")

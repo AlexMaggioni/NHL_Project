@@ -127,12 +127,12 @@ class JsonParser:
         return JsonParser(df=combined_df)
 
     @staticmethod
-    def load_all_seasons(path_csv):
+    def load_all_seasons(path_csv : Path):
         
         
         if os.path.exists(path_csv):
             df = pd.read_csv(path_csv, parse_dates=["gameDate"])
-            print("DataFrame loaded from 'clean_data.csv'")
+            logger.info(f"DataFrame loaded from {path_csv}")
             return df
 
         base_parser = JsonParser()
@@ -146,15 +146,29 @@ class JsonParser:
                 base_parser = base_parser + parser
 
         base_parser.df.to_csv(path_csv, index=False)
-        print("DataFrame saved to 'clean_data.csv'")
+        logger.info(f"DataFrame saved to {path_csv}")
         return base_parser.df
 
-if __name__ == "__main__":
-    from dotenv import load_dotenv
-    if load_dotenv(Path(__file__).parent.parent / '.env',verbose=True):
-        path_save_csv = Path(os.getenv('DATA_FOLDER')) / 'clean_data.csv'
-        df = JsonParser.load_all_seasons(path_save_csv)
-    else:
-        raise RuntimeError("COULD NOT LOAD THE .env FILE")
+def cli_args():
+    '''
+    CLI Interface, to specify for now :
+        - path of the csv file (value specified by the value returned as pathlib.Path)
+    '''
+    import argparse
+    parser = argparse.ArgumentParser(description='Script to scrap json files from the NHL API and construct a Dataframe (and a .csv file). if the csv file already exists do nothing, otherwise parse json files to create it')
+    parser.add_argument('-p_csv', '--path_to_csv', type=str, required=True, help='Path to the csv file. Will be concatenated to the .env\'s DATA_FOLDER var')
+    args = parser.parse_args()
+    return args
 
-    
+if __name__ == "__main__":
+
+    from utils import init_logger, verify_dotenv_file
+
+    verify_dotenv_file(Path(__file__).parent.parent)
+    logger = init_logger("json_scrapper.log")
+    args = cli_args()
+
+    path_output_csv = str(Path(os.getenv("DATA_FOLDER")) / args.path_to_csv)
+    JsonParser.load_all_seasons(
+        path_output_csv
+    )

@@ -12,37 +12,37 @@ Les passionnés de hockey le savent bien : avoir accès à des données détaill
 
 ### 1. Décryptons le gameID:
 
-Un gameID typique a l'apparence suivante: 2023020001.
+Un gameID typique a l'apparence suivante: `2023020001`.
 
--Les 4 premiers chiffres déterminent la saison du jeu.
--Les 2 chiffres suivants représentent le type de jeu (saison régulière, playoffs, etc.).
--Les 4 derniers chiffres sont un identifiant unique pour chaque match.
+* Les 4 premiers chiffres déterminent la saison du jeu.
+* Les 2 chiffres suivants représentent le type de jeu (saison régulière, playoffs, etc.).
+* Les 4 derniers chiffres sont un identifiant unique pour chaque match.
 
-Avec ces informations en main, notre mission est de récupérer tous les matchs ayant une structure [2016 à 2020]-[02 ou 03]-[ID].
+Avec ces informations en main, notre mission est de récupérer tous les matchs ayant une structure `[2016 à 2020]-[02 ou 03]-[ID]`.
 
 ### 2. L'API de la NHL, notre allié:
 
-L'API de la NHL nous permet d'accéder à une multitude de données. Nous commençons par utiliser l'endpoint "https://statsapi.web.nhl.com/api/v1/schedule" pour obtenir les gameIDs. Nous pouvons spécifier la saison et le type de match avec des paramètres comme "?season={season}" et "?gameType={Type of game}". Cette logique a été implémenter dans notre classe "Schedule_endpoints_Fetcher".
+L'API de la NHL nous permet d'accéder à une multitude de données. Nous commençons par utiliser l'endpoint `https://statsapi.web.nhl.com/api/v1/schedule` pour obtenir les gameIDs. Nous pouvons spécifier la saison et le type de match avec des paramètres comme `?season={season}` et `?gameType={Type of game}`. Cette logique a été implémentée dans notre classe `nhl_rest_api_fetcher.py::Schedule_endpoints_Fetcher`.
 
-Ensuite, avec les gameIDs obtenus, nous interrogeons l'endpoint "https://statsapi.web.nhl.com/api/v1/game/[GAME_ID]/feed/live/" pour récupérer les données play-by-play. Cette logique a été implémenter dans notre classe "Game_endpoints_Fetcher".
+Ensuite, avec les gameIDs obtenus, nous interrogeons l'endpoint `https://statsapi.web.nhl.com/api/v1/game/[GAME_ID]/feed/live/` pour récupérer les données play-by-play. Cette logique a été implémenter dans notre classe `nhl_rest_api_fetcher.py::Game_endpoints_Fetcher`.
 
 ## Fonctionnement de notre code
 
-### Base_Fetcher: La Classe Mère
+### `Base_Fetcher`: La Classe Mère
 
 La classe Base_Fetcher sert de fondation pour nos opérations de récupération de données. Elle offre la structure de base et les méthodes essentielles qui seront héritées et possiblement étendues par les sous-classes.
 
 Les trois principales fonctions de Base_Fetcher:
 
-* fetch():
+* `fetch()`:
 
 Cette méthode est le cœur de la classe. Elle effectue la requête GET vers l'API NHL. Elle prend en charge différents formats de sortie tels que "json", "binary", "text", et "raw". La méthode offre également une fonctionnalité pour sauvegarder localement la réponse. Si un chemin est fourni et qu'un fichier existe déjà à ce chemin, la requête GET est évitée.
 
-* _read_content_from_local():
+* `_read_content_from_local()`:
 
 Si la méthode fetch() trouve qu'un fichier existe déjà localement, cette méthode est appelée pour lire le contenu du fichier. Elle gère différents formats tels que "json", "binary" et "text".
 
-* _save_local():
+* `_save_local()`:
 
 Cette méthode est utilisée pour sauvegarder la réponse de la requête GET localement. Elle peut gérer différents formats de données, et lancer une erreur si elle ne sait pas comment sérialiser un objet particulier. 
 
@@ -70,8 +70,8 @@ Ensuite, c'est le moment de personnaliser les paramètres selon vos besoins. Ouv
 
 ```bash
 # .env file example
-DATA_FOLDER = './data/' # folder where data will be stored
-LOGGING_FILE = './log_file/' # folder where logs file will be stored
+DATA_FOLDER = 'ABSOLUTE_PATH_TOWARDS_DATA_DIR' # folder where data will be stored
+LOGGING_FILE = 'ABSOLUTE_PATH_TOWARDS_LOG_DIR' # folder where logs file will be stored
 ```
 
 ### 3. Lancement du script :
@@ -79,14 +79,15 @@ LOGGING_FILE = './log_file/' # folder where logs file will be stored
 Une fois tout en place, lancez le script avec cette simple commande :
 
 ```bash
-python nhl_rest_api_fetcher.py
+# télécharge chaque play de chaque match, que ce soit des playoffs ou de la saison régulière, pour chaque saison de 2016 à 2020
+python Milestone1/nhl_rest_api_fetcher.py --years $(seq -s ' ' 2016 2020)
 ```
 
 Et voilà, aussi simple que ça !
 
-Le script se charge de télécharger chaque play de chaque match, que ce soit des playoffs ou de la saison régulière, pour chaque saison de 2016 à 2020.
+***Le script se charge de télécharger chaque play de chaque match, que ce soit des playoffs ou de la saison régulière, pour chaque saison de 2016 à 2020.***
 
-Structure des données :
+**<u>Structure des données résultante:</u>**
 
 Vos données seront soigneusement organisées dans le dossier DATA_FOLDER selon la structure suivante :
 
@@ -103,8 +104,8 @@ data
 
 ```
 
-Chaque fichier est un document JSON contenant toutes les données play-by-play d'un match. Et bonne nouvelle ! Si un fichier JSON existe déjà, le script n'effectuera pas de téléchargement redondant. Vous pouvez donc lancer le script autant de fois que vous le souhaitez sans vous soucier de télécharger les mêmes données.
+Chaque fichier est un document JSON contenant toutes les données play-by-play d'un match. Et bonne nouvelle ! **Si un fichier JSON existe déjà, le script n'effectuera pas de téléchargement redondant**. Vous pouvez donc lancer le script autant de fois que vous le souhaitez sans vous soucier de télécharger les mêmes données.
 
 Petite note : Lors de la première utilisation, attendez-vous à un téléchargement d'environ 4,3 Go de fichiers JSON. La durée sera d'environ 10 minutes (testé sur un laptop OMEN HP avec une connexion Wi-Fi moyenne). Mais ce n'est pas tout ! Pour plus de transparence, notre script génère également des fichiers de logs dans le dossier log_file, vous permettant ainsi de suivre l'évolution des téléchargements.
 
-Voilà, c'est tout ! Avec ces étapes faciles à suivre, plongez dans les profondeurs des données de la LNH et exploitez-les comme bon vous semble. Bonne analyse !
+**Voilà, c'est tout ! Avec ces étapes faciles à suivre, plongez dans les profondeurs des données de la LNH et exploitez-les comme bon vous semble. Bonne analyse !**

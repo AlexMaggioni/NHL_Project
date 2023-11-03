@@ -383,7 +383,7 @@ class Schedule_endpoints_Fetcher(Base_Fetcher):
             )
 
 
-def regular_playoff_p_by_p_data_per_season():
+def regular_playoff_p_by_p_data_per_season(years: list[int]):
     '''
     For now, Main Entrypoint of the script.
     Will instantiate the Schedule_endpoints_Fetcher and Game_endpoints_Fetcher classes
@@ -396,7 +396,7 @@ def regular_playoff_p_by_p_data_per_season():
     #TODO : Refactor list of years using a config file. 
     #       Generally make this file more flexible by using external config files
     # such as with Hydra library OR with a CLI Interface
-    for year in trange(2016, 2021, desc=f"Iterating on year"):
+    for year in tqdm(years, desc=f"Iterating on year"):
         
         response = Schedule_endpoints_Fetcher(
             path="schedule",
@@ -419,6 +419,17 @@ def regular_playoff_p_by_p_data_per_season():
                 Game_endpoints_Fetcher(f"game/{id}/feed/live").fetch(
                     save_local=path_save_local
                 )
+
+def cli_args():
+    '''
+    CLI Interface, to specify for now :
+        - years of seasons to iterate on (comma-separated values specified by the value returned as list[int])
+    '''
+    import argparse
+    parser = argparse.ArgumentParser(description='Script to fetch data from the NHL REST API')
+    parser.add_argument('-y','--years', required=True, nargs='+', type=int, help='years of seasons to iterate on')
+    args = parser.parse_args()
+    return args
 
 
 def generate_url_path(*parts, use_posix=False):
@@ -446,8 +457,11 @@ def init_logger():
     logger.remove(0)
 
 if __name__ == "__main__":
-    if load_dotenv(Path(__file__).parent.parent / '.env',verbose=True):
-        init_logger()
-        regular_playoff_p_by_p_data_per_season()
-    else:
-        raise RuntimeError("COULD NOT LOAD THE .env FILE")
+
+    from utils import init_logger, verify_dotenv_file
+
+    verify_dotenv_file(Path(__file__).parent.parent)
+    logger = init_logger("nhl_rest_api_fetcher.log")
+    args = cli_args()
+
+    regular_playoff_p_by_p_data_per_season(years=args.years)

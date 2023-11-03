@@ -45,9 +45,15 @@ Then to add a new blog :
 * create a new dir `{new_category_posts}/_posts` and **`.md` files needs to start with this format `YYYY-MM-DD-filename.md` to be recognized as new blog**
 
 
-# How to run python scripts/notebooks
+# Milestone 1 - How to run python scripts/notebooks realted to Milestone 1
+
+# Before Running Anything
 
 *	Modifier les variables d'environnement du fichier `.env` !!!!!! SPECIFY ONLY ABSOLUTE PATH !!!!!!
 * 	Construisez votre python venv : `pip install -r requirements.txt`
-*	And run files in `Milestone1` (from whereever you want) preferably in the following order:
-	1. `python `
+
+## Acquisition de données (json files) depuis l'API de la NHL (requêtes GET) 
+
+* `python Milestone1/nhl_rest_api_fetcher.py --years $(seq -s ' ' 2016 2020)`
+
+## 
