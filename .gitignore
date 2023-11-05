@@ -1,4 +1,4 @@
-venv/
+venv_projet_nhl/
 log_file/
 __pycache__/
 blog_website/_site/
@@ -9,3 +9,4 @@ data/2017/
 data/2018/
 data/2019/
 data/2020/
+data/2015/

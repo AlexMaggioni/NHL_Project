@@ -396,29 +396,34 @@ def regular_playoff_p_by_p_data_per_season(years: list[int]):
     #TODO : Refactor list of years using a config file. 
     #       Generally make this file more flexible by using external config files
     # such as with Hydra library OR with a CLI Interface
-    for year in tqdm(years, desc=f"Iterating on year"):
-        
-        response = Schedule_endpoints_Fetcher(
-            path="schedule",
-            query_parameters={"season": f"{year}{year+1}", "gameType": "R,P"},
-        ).fetch()
+    with tqdm(total=len(years)) as pbar1:
 
-        game_ids = []
-        for date_data in response["dates"]:
-            for game in date_data["games"]:
-                game_ids.append(game["gamePk"])
+        for year in years:
+            pbar1.set_description(f"Fetching data for season {year}")
+            
+            response = Schedule_endpoints_Fetcher(
+                path="schedule",
+                query_parameters={"season": f"{year}{year+1}", "gameType": "R,P"},
+            ).fetch()
 
-        with tqdm(total=len(game_ids)) as pbar:
-            for id in game_ids:
-                path_save_local = Path(os.getenv('DATA_FOLDER')) / str(year) / f"{id}.json"
-                path_save_local.parent.mkdir(parents=True, exist_ok=True)
-                pbar.set_description(
-                    f"Fetching game/{id}/feed/live saved at {path_save_local}"
-                )
-                pbar.update(1)
-                Game_endpoints_Fetcher(f"game/{id}/feed/live").fetch(
-                    save_local=path_save_local
-                )
+            game_ids = []
+            for date_data in response["dates"]:
+                for game in date_data["games"]:
+                    game_ids.append(game["gamePk"])
+
+            with tqdm(total=len(game_ids)) as pbar2:
+                for id in game_ids:
+                    path_save_local = Path(os.getenv('DATA_FOLDER')) / str(year) / f"{id}.json"
+                    path_save_local.parent.mkdir(parents=True, exist_ok=True)
+                    pbar2.set_description(
+                        f"Fetching game/{id}/feed/live saved at {path_save_local}"
+                    )
+                    pbar2.update(1)
+                    Game_endpoints_Fetcher(f"game/{id}/feed/live").fetch(
+                        save_local=path_save_local
+                    )
+
+            pbar1.update(1)
 
 def cli_args():
     '''

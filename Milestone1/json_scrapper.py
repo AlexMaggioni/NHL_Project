@@ -127,26 +127,42 @@ class JsonParser:
         return JsonParser(df=combined_df)
 
     @staticmethod
-    def load_all_seasons(path_csv : Path):
+    def load_all_seasons(
+        path_csv_output : Path,
+        seasons_to_consider : list[int]):
         
         
-        if os.path.exists(path_csv):
-            df = pd.read_csv(path_csv, parse_dates=["gameDate"])
-            logger.info(f"DataFrame loaded from {path_csv}")
+        if os.path.exists(path_csv_output):
+            df = pd.read_csv(path_csv_output, parse_dates=["gameDate"])
+            logger.info(f"DataFrame loaded from {path_csv_output}")
             return df
 
         base_parser = JsonParser()
 
-        all_seasons = os.listdir(Path(path_csv).parent)
-        for season in tqdm(all_seasons, desc="Processing seasons"):
-            base_path = f"./data/{season}"
-            all_games = os.listdir(base_path)
-            for game in tqdm(all_games, desc=f"Processing games in {season}", leave=False):
-                parser = JsonParser(base_path + f"/{game}")
-                base_parser = base_parser + parser
+        ROOT_DATA = Path(os.getenv("DATA_FOLDER"))
 
-        base_parser.df.to_csv(path_csv, index=False)
-        logger.info(f"DataFrame saved to {path_csv}")
+
+        all_seasons = sorted(list(filter(
+            lambda s : s in seasons_to_consider,
+            os.listdir(ROOT_DATA)
+        )))
+
+        with tqdm(total=len(all_seasons)) as pbar1:
+            for season in all_seasons:
+                pbar1.set_description(f"Processing json files of season {season}")
+                base_path = ROOT_DATA / season
+                all_games = os.listdir(base_path)
+                with tqdm(total=len(all_games)) as pbar2:
+                    for game in all_games:
+                        pbar2.set_description(f"Parsing json file {game}")
+                        parser = JsonParser(str(base_path / game))
+                        base_parser = base_parser + parser
+                        pbar2.update(1)
+                pbar1.update(1)
+
+        OUTPUT_PATH = ROOT_DATA / path_csv_output
+        base_parser.df.to_csv(OUTPUT_PATH, index=False)
+        logger.info(f"DataFrame saved to {OUTPUT_PATH}")
         return base_parser.df
 
 def cli_args():
@@ -156,7 +172,8 @@ def cli_args():
     '''
     import argparse
     parser = argparse.ArgumentParser(description='Script to scrap json files from the NHL API and construct a Dataframe (and a .csv file). if the csv file already exists do nothing, otherwise parse json files to create it')
-    parser.add_argument('-p_csv', '--path_to_csv', type=str, required=True, help='Path to the csv file. Will be concatenated to the .env\'s DATA_FOLDER var')
+    parser.add_argument('-p_csv', '--path_to_csv', type=str, required=True, help='Path to the csv file. WILL BE CONCATENATED WITH the .env\'s DATA_FOLDER var. PUT THE COMMIT ID IN THE NAME !!!!!!!!!!!!!!11')
+    parser.add_argument('-y','--years', required=True, nargs='+', type=str, help='years of seasons to iterate on')
     args = parser.parse_args()
     return args
 
@@ -168,7 +185,8 @@ if __name__ == "__main__":
     logger = init_logger("json_scrapper.log")
     args = cli_args()
 
-    path_output_csv = str(Path(os.getenv("DATA_FOLDER")) / args.path_to_csv)
+
     JsonParser.load_all_seasons(
-        path_output_csv
+        args.path_to_csv,
+        args.years
     )

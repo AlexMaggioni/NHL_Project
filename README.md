@@ -45,15 +45,27 @@ Then to add a new blog :
 * create a new dir `{new_category_posts}/_posts` and **`.md` files needs to start with this format `YYYY-MM-DD-filename.md` to be recognized as new blog**
 
 
-# Milestone 1 - How to run python scripts/notebooks realted to Milestone 1
+# Milestone 1 - How to run python scripts/notebooks
 
 # Before Running Anything
 
 *	Modifier les variables d'environnement du fichier `.env` !!!!!! SPECIFY ONLY ABSOLUTE PATH !!!!!!
 * 	Construisez votre python venv : `pip install -r requirements.txt`
 
-## Acquisition de données (json files) depuis l'API de la NHL (requêtes GET) 
+## Acquisition des données (json files) depuis l'API de la NHL (requêtes GET) 
 
-* `python Milestone1/nhl_rest_api_fetcher.py --years $(seq -s ' ' 2016 2020)`
+```bash
+# télécharge chaque play de chaque match, que ce soit des playoffs ou de la saison régulière, pour chaque saison de 2016 à 2020
+python Milestone1/nhl_rest_api_fetcher.py --years $(seq -s ' ' 2016 2020)
+```
 
-## 
+## Nettoyer les données (.json to pandas dataframe)
+
+```bash
+# Scrappe tous les jsons file pour créer un fichier csv; concatenation of the .env\'s DATA_FOLDER var + arg given
+python Milestone1/json_scrapper.py --path_to_csv clean_data.csv
+```
+
+## Notebooks pour les visualisation simples/avancées et débuggage des fichiers .json
+
+* The notebooks are ready off-the-shelf for execution, so just choose a kernel and run them.
