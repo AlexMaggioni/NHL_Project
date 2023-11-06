@@ -161,6 +161,11 @@ def verify_dotenv_file(position_of_execution : Path):
     else:
         raise RuntimeError(f"COULD NOT LOAD THE {file_dot_env_to_load} FILE FROM {position_of_execution}")
 
+# vous pouvez approximer le filet en un seul point (c'est-à-dire que vous n'avez pas
+# besoin de tenir compte de la largeur du filet lors du calcul de la distance ou de l'angle).
+# x, y 
+GOAL_POSITION = [98,0]
+
 if __name__ == '__main__':
 
     data = pd.read_csv("clean_data.csv")
