@@ -171,7 +171,18 @@ def cli_args():
         - path of the csv file (value specified by the value returned as pathlib.Path)
     '''
     import argparse
-    parser = argparse.ArgumentParser(description='Script to scrap json files from the NHL API and construct a Dataframe (and a .csv file). if the csv file already exists do nothing, otherwise parse json files to create it')
+    parser = argparse.ArgumentParser(
+        description="""
+        Script to scrap json files from the NHL API and construct a Dataframe (and a .csv file). 
+        if the csv file already exists do nothing, otherwise parse json files to create it
+        """,
+        epilog='''
+        Example : 
+        export PYTHONPATH="$pwd"
+        # télécharge chaque play de chaque match, que ce soit des playoffs ou de la saison régulière, pour chaque saison de 2016 à 2020
+        python Milestone1/json_scrapper.py --years $(seq -s ' ' 2016 2020)
+        '''
+    )
     parser.add_argument('-p_csv', '--path_to_csv', type=str, required=True, help='Path to the csv file. WILL BE CONCATENATED WITH the .env\'s DATA_FOLDER var. PUT THE COMMIT ID IN THE NAME !!!!!!!!!!!!!!11')
     parser.add_argument('-y','--years', required=True, nargs='+', type=str, help='years of seasons to iterate on')
     args = parser.parse_args()

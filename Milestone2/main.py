@@ -28,6 +28,7 @@ def run_experiment(cfg: DictConfig) -> None:
         angle_to_goal = DATA_PIPELINE_CONFIG.angle_to_goal,
         is_goal = DATA_PIPELINE_CONFIG.is_goal,
         empty_net = DATA_PIPELINE_CONFIG.empty_net,
+        verbose = DATA_PIPELINE_CONFIG.verbose,
     )
 
 
