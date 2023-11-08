@@ -29,9 +29,18 @@ def unify_coordinates_referential(
         raise RuntimeError("The dataframe must contain the columns 'coordinateX', 'coordinateY' and 'rinkSide'.")
     
     df_with_coordinates = df_with_coordinates.copy()
-    df_with_coordinates.loc[df_with_coordinates['rinkSide'] == 'right', 'coordinateX'] = -df_with_coordinates['coordinateX']
-    df_with_coordinates.loc[df_with_coordinates['rinkSide'] == 'right', 'coordinateY'] = -df_with_coordinates['coordinateY']
-    df_with_coordinates.loc[df_with_coordinates['rinkSide'] == 'right', 'rinkSide'] = 'left'
+    right_rink_side = df_with_coordinates['rinkSide'] == 'right'
+    df_with_coordinates.loc[right_rink_side, 'coordinateX'] = -df_with_coordinates.loc[right_rink_side, 'coordinateX']
+    df_with_coordinates.loc[right_rink_side, 'coordinateY'] = -df_with_coordinates.loc[right_rink_side, 'coordinateY']
+    df_with_coordinates.loc[right_rink_side, 'rinkSide'] = 'left'
+
+    # Handling of plays with rinkSide == 'Shootout'
+    # We gonna assume that if coordinateX is negative, then the goal was on the left side
+    # Thus, we can only inverse those kinnds of shootout plays
+    shootout_plays = (df_with_coordinates['rinkSide'] == 'Shootout') & (df_with_coordinates['coordinateX'] <= 0)
+    df_with_coordinates.loc[shootout_plays, 'coordinateX'] = -df_with_coordinates.loc[shootout_plays, 'coordinateX']
+    df_with_coordinates.loc[shootout_plays, 'coordinateY'] = -df_with_coordinates.loc[shootout_plays, 'coordinateY']
+    df_with_coordinates.loc[shootout_plays, 'rinkSide'] = 'left'
 
     return df_with_coordinates
 
