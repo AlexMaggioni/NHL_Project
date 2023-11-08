@@ -1,19 +1,19 @@
 import pandas as pd
 from pathlib import Path
 
-def unify_coordinates_referential(
-        df_with_coordinates: pd.DataFrame,
-) -> pd.DataFrame:
-    
+import pandas as pd
+
+import pandas as pd
+
+def unify_coordinates_referential(df_with_coordinates: pd.DataFrame) -> pd.DataFrame:
     """
-    Les coordonnees des plays dans le dataframe sont raletif a un sens de jeu (selon si le but est a gauche ou a droite ?).
+    Les coordonnees des plays dans le dataframe sont relatives a un sens de jeu (selon si le but est a gauche ou a droite).
     Cette fonction permet d'unifier les coordonnees des plays relativement a un meme sens de jeu.
 
     Pour chaque ligne de df_with_coordinates (une row = un play),
-      Les coordonnes doivent etre disponible via "coordinateX" amd "coordinateY"
-      et une colonne 'rinkSide' doit etre disponible (soit 'left', soit 'right').
+    Les coordonnes doivent etre disponibles via "coordinateX" et "coordinateY"
+    et une colonne 'rinkSide' doit etre disponible (soit 'left', soit 'right').
 
-    
     Parameters
     ----------
     df_with_coordinates : pd.DataFrame
@@ -25,18 +25,34 @@ def unify_coordinates_referential(
         A dataframe containing the shots with their coordinates unified.
     """
 
-    if not set(df_with_coordinates.columns).issuperset({"coordinateX", "coordinateY", "rinkSide"}):
-        raise RuntimeError("The dataframe must contain the columns 'coordinateX', 'coordinateY' and 'rinkSide'.")
-    
+    # Ensure the dataframe contains necessary columns
+    required_columns = {"coordinateX", "coordinateY", "rinkSide"}
+    if not required_columns.issubset(df_with_coordinates.columns):
+        raise RuntimeError(f"The dataframe must contain the columns: {required_columns}.")
+
+    # Copy the dataframe to avoid modifying the original one
     df_with_coordinates = df_with_coordinates.copy()
+
+    # Handling NaN rinkSide
+    nan_rink_sides = df_with_coordinates['rinkSide'].isna()
+    if nan_rink_sides.any():
+        # Check if 'period', 'byTeam', and 'gameId' columns exist
+        if not set(df_with_coordinates.columns).issuperset({"period", "byTeam", "gameId"}):
+            raise RuntimeError("The dataframe must contain 'period', 'byTeam', and 'gameId' columns to compute the rink side for NaN values.")
+
+        # Group by the necessary fields and compute the average of coordinateX
+        averages = df_with_coordinates.groupby(['period', 'byTeam', 'gameId'])['coordinateX'].transform('mean')
+
+        # Assign 'right' if the average is negative, otherwise 'left'
+        df_with_coordinates.loc[nan_rink_sides, 'rinkSide'] = ['right' if x < 0 else 'left' for x in averages[nan_rink_sides]]
+
+    # Main coordinate unification logic
     right_rink_side = df_with_coordinates['rinkSide'] == 'right'
     df_with_coordinates.loc[right_rink_side, 'coordinateX'] = -df_with_coordinates.loc[right_rink_side, 'coordinateX']
     df_with_coordinates.loc[right_rink_side, 'coordinateY'] = -df_with_coordinates.loc[right_rink_side, 'coordinateY']
     df_with_coordinates.loc[right_rink_side, 'rinkSide'] = 'left'
 
     # Handling of plays with rinkSide == 'Shootout'
-    # We gonna assume that if coordinateX is negative, then the goal was on the left side
-    # Thus, we can only inverse those kinnds of shootout plays
     shootout_plays = (df_with_coordinates['rinkSide'] == 'Shootout') & (df_with_coordinates['coordinateX'] <= 0)
     df_with_coordinates.loc[shootout_plays, 'coordinateX'] = -df_with_coordinates.loc[shootout_plays, 'coordinateX']
     df_with_coordinates.loc[shootout_plays, 'coordinateY'] = -df_with_coordinates.loc[shootout_plays, 'coordinateY']
