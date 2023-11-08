@@ -173,7 +173,7 @@ def verify_dotenv_file(position_of_execution : Path):
 # vous pouvez approximer le filet en un seul point (c'est-à-dire que vous n'avez pas
 # besoin de tenir compte de la largeur du filet lors du calcul de la distance ou de l'angle).
 # x, y 
-GOAL_POSITION = [98,0]
+GOAL_POSITION = [89,0]
 
 if __name__ == '__main__':
 
