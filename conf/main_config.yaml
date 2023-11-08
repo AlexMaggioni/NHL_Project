@@ -1,0 +1,7 @@
+defaults:
+  - _self_
+  - data_pipeline:
+      - feature_engineering # will resolve to content in ./data_pipeline/feature_engineering.yaml
+
+# provide file path to raw data FROM ROOT DIRECTORY specified by env var DATA_FOLDER in .env file
+raw_train_data_path: 2016_2020_data_150cd5075.csv
