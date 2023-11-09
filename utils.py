@@ -1,11 +1,9 @@
 import pandas as pd
 from pathlib import Path
-
 import pandas as pd
 
-import pandas as pd
 
-def unify_coordinates_referential(df_with_coordinates: pd.DataFrame) -> pd.DataFrame:
+def unify_coordinates_referential(df_with_coordinates: pd.DataFrame, input_rinkSide: bool) -> pd.DataFrame:
     """
     Les coordonnees des plays dans le dataframe sont relatives a un sens de jeu (selon si le but est a gauche ou a droite).
     Cette fonction permet d'unifier les coordonnees des plays relativement a un meme sens de jeu.
@@ -33,18 +31,20 @@ def unify_coordinates_referential(df_with_coordinates: pd.DataFrame) -> pd.DataF
     # Copy the dataframe to avoid modifying the original one
     df_with_coordinates = df_with_coordinates.copy()
 
-    # Handling NaN rinkSide
-    nan_rink_sides = df_with_coordinates['rinkSide'].isna()
-    if nan_rink_sides.any():
-        # Check if 'period', 'byTeam', and 'gameId' columns exist
-        if not set(df_with_coordinates.columns).issuperset({"period", "byTeam", "gameId"}):
-            raise RuntimeError("The dataframe must contain 'period', 'byTeam', and 'gameId' columns to compute the rink side for NaN values.")
+    if input_rinkSide:
 
-        # Group by the necessary fields and compute the average of coordinateX
-        averages = df_with_coordinates.groupby(['period', 'byTeam', 'gameId'])['coordinateX'].transform('mean')
+        # Handling NaN rinkSide
+        nan_rink_sides = df_with_coordinates['rinkSide'].isna()
+        if nan_rink_sides.any():
+            # Check if 'period', 'byTeam', and 'gameId' columns exist
+            if not set(df_with_coordinates.columns).issuperset({"period", "byTeam", "gameId"}):
+                raise RuntimeError("The dataframe must contain 'period', 'byTeam', and 'gameId' columns to compute the rink side for NaN values.")
 
-        # Assign 'right' if the average is negative, otherwise 'left'
-        df_with_coordinates.loc[nan_rink_sides, 'rinkSide'] = ['right' if x < 0 else 'left' for x in averages[nan_rink_sides]]
+            # Group by the necessary fields and compute the average of coordinateX
+            averages = df_with_coordinates.groupby(['gameId', 'period', 'byTeam'])['coordinateX'].transform('mean')
+
+            # Assign 'right' if the average is negative, otherwise 'left'
+            df_with_coordinates.loc[nan_rink_sides, 'rinkSide'] = ['right' if x < 0 else 'left' for x in averages[nan_rink_sides]]
 
     # Main coordinate unification logic
     right_rink_side = df_with_coordinates['rinkSide'] == 'right'
