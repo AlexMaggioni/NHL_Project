@@ -1,6 +1,11 @@
-distance_to_goal : true # add a column with the distance to the goal
-angle_to_goal : true # add a column with the angle to the goal
-is_goal : true # add a column with a boolean indicating if the shot is a goal
-empty_net : true # add a column with a boolean indicating if the goal is empty
-verbose : True 
-input_rinkSide : True # add a column with the mean of the rinkSide column
+distanceToGoal: True,
+angleToGoal: True,
+isGoal: True,
+emptyNet: True,
+verbose: True,
+inputRinkSide: True,
+seconds: True,
+lastEventFeatures: True,
+rebound: True,
+changeOfAngle: True,
+speed: True,
