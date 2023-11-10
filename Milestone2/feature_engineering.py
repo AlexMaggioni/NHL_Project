@@ -2,6 +2,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 from utils import unify_coordinates_referential, init_logger, verify_dotenv_file, GOAL_POSITION
+from datetime import timedelta
 
 verify_dotenv_file(Path(__file__).parent.parent)
 logger = init_logger("feature_engineering.log")
@@ -17,11 +18,15 @@ class NHLFeatureEngineering:
             emptyNet: bool,
             verbose: bool,
             inputRinkSide: bool,
-            seconds: bool,
-            lastEventFeatures: bool,
+            periodTimeSeconds: bool,
+            lastEvent: bool,
+            lastCoordinates: bool,
+            timeElapsed: bool,
+            distanceFromLastEvent: bool,
             rebound: bool,
-            changeOfAngle: bool,
+            changeAngle: bool,
             speed: bool,
+            computePowerPlayFeatures: bool,
         ):
         
         self.df = df
@@ -35,11 +40,15 @@ class NHLFeatureEngineering:
         self.angleToGoal = angleToGoal
         self.isGoal = isGoal
         self.emptyNet = emptyNet
-        self.seconds = seconds
-        self.lastEventFeatures = lastEventFeatures
+        self.periodTimeSeconds = periodTimeSeconds
+        self.lastEvent = lastEvent
+        self.lastCoordinates = lastCoordinates
+        self.timeElapsed = timeElapsed
+        self.distanceFromLastEvent = distanceFromLastEvent
         self.rebound = rebound
-        self.changeOfAngle = changeOfAngle
+        self.changeAngle = changeAngle
         self.speed = speed
+        self.computePowerPlayFeatures = computePowerPlayFeatures
 
         if self.distanceToGoal or self.angleToGoal:
             self.dfUnify = self._printNaStatsBeforeUnifying()
@@ -50,12 +59,12 @@ class NHLFeatureEngineering:
             logger.info("CALCULATING DISTANCE TO GOAL - ADDING COLUMN distanceToGoal TO DATAFRAME")
             self.df['distanceToGoal'] = self.calculateDistanceToGoal()
             self.dfUnify['distanceToGoal'] = self.df.loc[self.dfUnify.index, 'distanceToGoal']
-            
+
         if self.angleToGoal:
             logger.info("CALCULATING ANGLE TO GOAL - ADDING COLUMN angleToGoal TO DATAFRAME")
             self.df['angleToGoal'] = self.calculateAngleToGoal()
             self.dfUnify['angleToGoal'] = self.df.loc[self.dfUnify.index, 'angleToGoal']
-        
+
         if self.isGoal:
             logger.info("CALCULATING IS GOAL - ADDING COLUMN isGoal TO DATAFRAME")
             self.df['isGoal'] = self.calculateIsGoal()
@@ -66,39 +75,64 @@ class NHLFeatureEngineering:
             self.df['emptyNet'] = self.calculateEmptyNet()
             self.dfUnify['emptyNet'] = self.df.loc[self.dfUnify.index, 'emptyNet']
 
-        if self.seconds:
+        if self.periodTimeSeconds:
             logger.info("CALCULATING PERIOD TIME IN SECONDS - ADDING COLUMN periodTimeSeconds TO DATAFRAME")
             self.df['periodTimeSeconds'] = self.calculatePeriodTimeSeconds()
             self.dfUnify['periodTimeSeconds'] = self.df.loc[self.dfUnify.index, 'periodTimeSeconds']
 
-        if self.lastEventFeatures:
-            logger.info("CALCULATING LAST EVENT FEATURES - ADDING COLUMNS {LastEventType, LastCoordinateX, LastCoordinateY, timeElapsed and distanceFromLastEvent} TO DATAFRAME")
-            valuesDict = self.calculateLastEventFeatures()
-            for key, value in valuesDict.items():
-                self.df[key] = value
-                self.dfUnify[key] = self.df.loc[self.dfUnify.index, key]
+        if self.lastEvent:
+            logger.info("CALCULATING LAST EVENT - ADDING COLUMN lastEventType TO DATAFRAME")
+            self.df['lastEventType'] = self.calculateLastEvent()
+            self.dfUnify['lastEventType'] = self.df.loc[self.dfUnify.index, 'lastEventType']
+
+        if self.lastCoordinates:
+            logger.info("CALCULATING LAST COORDINATES - ADDING COLUMNS lastCoordinateX AND lastCoordinateY TO DATAFRAME")
+            self.df['lastCoordinateX'], self.df['lastCoordinateY'] = self.calculateLastCoordinates()
+            self.dfUnify['lastCoordinateX'] = self.df.loc[self.dfUnify.index, 'lastCoordinateX']
+            self.dfUnify['lastCoordinateY'] = self.df.loc[self.dfUnify.index, 'lastCoordinateY']
+
+        if self.timeElapsed:
+            logger.info("CALCULATING TIME ELAPSED - ADDING COLUMN timeElapsed TO DATAFRAME")
+            self.df['timeElapsed'] = self.calculateTimeElapsed()
+            self.dfUnify['timeElapsed'] = self.df.loc[self.dfUnify.index, 'timeElapsed']
+
+        if self.distanceFromLastEvent:
+            logger.info("CALCULATING DISTANCE FROM LAST EVENT - ADDING COLUMN distanceFromLastEvent TO DATAFRAME")
+            self.df['distanceFromLastEvent'] = self.calculateDistanceFromLastEvent()
+            self.dfUnify['distanceFromLastEvent'] = self.df.loc[self.dfUnify.index, 'distanceFromLastEvent']
 
         if self.rebound:
-            logger.info("CALCULATING REBOUND - ADDING COLUMN isRebound TO DATAFRAME")
-            self.df['isRebound'] = self.calculateRebound()
-            self.dfUnify['isRebound'] = self.df.loc[self.dfUnify.index, 'isRebound']
+            logger.info("CALCULATING REBOUND - ADDING COLUMN rebound TO DATAFRAME")
+            self.df['rebound'] = self.calculateRebound()
+            self.dfUnify['rebound'] = self.df.loc[self.dfUnify.index, 'rebound']
 
-        if self.changeOfAngle:
-            logger.info("CALCULATING CHANGE OF ANGLE - ADDING COLUMN changeOfAngle TO DATAFRAME")
-            self.df['changeOfAngle'] = self.calculateChangeOfAngle()
-            self.dfUnify['changeOfAngle'] = self.df.loc[self.dfUnify.index, 'changeOfAngle']
+        if self.changeAngle:
+            logger.info("CALCULATING CHANGE ANGLE - ADDING COLUMN changeAngle TO DATAFRAME")
+            self.df['changeAngle'] = self.calculateChangeAngle()
+            self.dfUnify['changeAngle'] = self.df.loc[self.dfUnify.index, 'changeAngle']
 
         if self.speed:
             logger.info("CALCULATING SPEED - ADDING COLUMN speed TO DATAFRAME")
             self.df['speed'] = self.calculateSpeed()
             self.dfUnify['speed'] = self.df.loc[self.dfUnify.index, 'speed']
 
+        if self.computePowerPlayFeatures:
+            logger.info("COMPUTING POWER PLAY INFO - ADDING COLUMNS elapsedPowerPlay, homeSkaters and awaySkaters TO DATAFRAME")
+            elapsedPowerPlay, homeSkaters, awaySkaters = self.calculatePowerPlayFeatures()
+            self.df['elapsedPowerPlay'] = elapsedPowerPlay
+            self.df['homeSkaters'] = homeSkaters
+            self.df['awaySkaters'] = awaySkaters
+            self.dfUnify['elapsedPowerPlay'] = self.df.loc[self.dfUnify.index, 'elapsedPowerPlay']
+            self.dfUnify['homeSkaters'] = self.df.loc[self.dfUnify.index, 'homeSkaters']
+            self.dfUnify['awaySkaters'] = self.df.loc[self.dfUnify.index, 'awaySkaters']
+
         self.dfUnify = self.dfUnify.reset_index(drop=True)
 
     def _printNaStatsBeforeUnifying(self):
+
         shotsWithoutXCoords = set(self.df[self.df['coordinateX'].isna()].index)
         shotsWithoutYCoords = set(self.df[self.df['coordinateY'].isna()].index)
-        coordsToSelect = self.df.loc[list(set(self.df.index) - shotsWithoutXCoords.union(shotsWithoutYCoords))]
+        coordsToSelect = self.df.iloc[ list(set(self.df.index) - shotsWithoutXCoords.union(shotsWithoutYCoords)) ]
 
         rinkSideNa = coordsToSelect[coordsToSelect['rinkSide'].isna()].index
 
@@ -117,10 +151,8 @@ class NHLFeatureEngineering:
                 RinkSide NA stats:
                     {len(rinkSideNa)} shots without rinkSide specified. Use inputRinkSide == True to handle missing 
                     values based on mean X coordinates in a period for a given team and gameId.
-
-                ROWS WITH MISSING COORDINATES ARE DROPPED IN THE UNIFIED DATAFRAME.
             """)
-        return coordsToSelect
+        return self.df
 
     def calculateEmptyNet(self):
         '''
@@ -134,16 +166,16 @@ class NHLFeatureEngineering:
         Calculate the distance to the goal for each shot.
         '''
         unifiedCoordinatesDf = unify_coordinates_referential(self.df, True)
-        dists =  np.linalg.norm(self.GOAL_POSITION - unifiedCoordinatesDf[['coordinateX','coordinateY']], axis=1)
+        dists = np.linalg.norm(self.GOAL_POSITION - unifiedCoordinatesDf[['coordinateX', 'coordinateY']], axis=1)
         dists = pd.Series(dists, index=unifiedCoordinatesDf.index)
-        # fill with NA values the shots without coordinates in the dists Series
+        # Fill with NA values the shots without coordinates in the dists Series
         res = dists.reindex(self.df.index)
         return res
 
     def calculateAngleToGoal(self):
         '''
         Calculate the angle to the goal for each shot.
-        ''' 
+        '''
         unifiedCoordinatesDf = unify_coordinates_referential(self.df, True)
         atanValues = np.degrees(np.arctan2(
             self.GOAL_POSITION[1] - unifiedCoordinatesDf['coordinateY'],
@@ -162,120 +194,125 @@ class NHLFeatureEngineering:
         '''
         Calculate the period time in seconds instead of MM:SS.
         '''
-        seconds = self.df['periodTime'].apply(lambda x: int(x.split(':')[0])*60 + int(x.split(':')[1]))
-        return seconds
+        df_sorted = self.df.sort_values(by=['gameId', 'period', 'periodTime']).copy()
+        seconds = df_sorted['periodTime'].apply(lambda x: int(x.split(':')[0]) * 60 + int(x.split(':')[1]))
+        return seconds.reindex(self.df.index)
 
-    def calculateLastEventFeatures(self):
+    def calculateLastEvent(self):
         '''
-        Calculate the last event features.
+        Calculate the last event just before the current one.
         '''
-        # Ensure dataframe is sorted by gameId, period, and periodTime
-        dfSorted = self.df.sort_values(by=['gameId', 'period', 'periodTime'])
+        df_sorted = self.df.sort_values(by=['gameId', 'period', 'periodTime']).copy()
+        return df_sorted["eventType"].shift(1).reindex(self.df.index)
 
-        # Calculate period time in seconds if not already done
-        if not self.seconds:
-            dfSorted["periodTimeSeconds"] = self.calculatePeriodTimeSeconds()
+    def calculateLastCoordinates(self):
+        '''
+        Calculate the last coordinates just before the current one.
+        '''
+        df_sorted = self.df.sort_values(by=['gameId', 'period', 'periodTime']).copy()
+        shiftedX = df_sorted["coordinateX"].shift(1)
+        shiftedY = df_sorted["coordinateY"].shift(1)
+        return shiftedX.reindex(self.df.index), shiftedY.reindex(self.df.index)
 
-        # Calculate angle to goal if not already done
-        if not self.angleToGoal:
-            dfSorted["angleToGoal"] = self.calculateAngleToGoal()
+    def calculateTimeElapsed(self):
+        '''
+        Calculate the time elapsed since the last event.
+        '''
+        seconds = self.calculatePeriodTimeSeconds()
+        return (seconds - seconds.shift(1)).reindex(self.df.index)
 
-        # Shift the relevant columns to get last event values
-        dfSorted['LastEventType'] = dfSorted['eventType'].shift(1)
-        dfSorted['LastCoordinateX'] = dfSorted['coordinateX'].shift(1)
-        dfSorted['LastCoordinateY'] = dfSorted['coordinateY'].shift(1)
-        dfSorted['LastAngleToGoal'] = dfSorted['angleToGoal'].shift(1)
-        dfSorted['timeElapsed'] = dfSorted['periodTimeSeconds'] - dfSorted['periodTimeSeconds'].shift(1)
-
-        # Calculate distance from last event using unified coordinates
-        # Need to unify the coordinates for the entire dataframe first
-        unifiedCoordinatesDf = unify_coordinates_referential(dfSorted, self.inputRinkSide)
-        dfSorted['LastUnifiedX'] = unifiedCoordinatesDf['coordinateX'].shift(1)
-        dfSorted['LastUnifiedY'] = unifiedCoordinatesDf['coordinateY'].shift(1)
-        
-        # Calculate distance using unified coordinates
-        dfSorted['distanceFromLastEvent'] = np.linalg.norm(
-            unifiedCoordinatesDf[['coordinateX', 'coordinateY']] - dfSorted[['LastUnifiedX', 'LastUnifiedY']],
+    def calculateDistanceFromLastEvent(self):
+        '''
+        Calculate the distance from the last event.
+        '''
+        df_sorted = self.df.sort_values(by=['gameId', 'period', 'periodTime']).copy()
+        shiftedX, shiftedY = self.calculateLastCoordinates()
+        distances = np.linalg.norm(
+            df_sorted[["coordinateX", "coordinateY"]].values - np.array([shiftedX, shiftedY]).T,
             axis=1
         )
-
-        # Handle edge cases where timeElapsed can be negative at the period start
-        dfSorted.loc[dfSorted['timeElapsed'] < 0, 'timeElapsed'] = None
-
-        # Extract the calculated columns to return as a dictionary
-        values = {
-            'LastEventType': dfSorted['LastEventType'],
-            'LastCoordinateX': dfSorted['LastCoordinateX'],
-            'LastCoordinateY': dfSorted['LastCoordinateY'],
-            'LastAngleToGoal': dfSorted['LastAngleToGoal'],
-            'timeElapsed': dfSorted['timeElapsed'],
-            'distanceFromLastEvent': dfSorted['distanceFromLastEvent']
-        }
-
-        return values
+        distances_series = pd.Series(distances, index=df_sorted.index)
+        return distances_series.reindex(self.df.index)
 
     def calculateRebound(self):
         '''
         Calculate if the shot was a rebound.
         '''
-        # Initialize valuesDict as None to check if it gets assigned later
-        valuesDict = None
+        df_sorted = self.df.sort_values(by=['gameId', 'period', 'periodTime']).copy()
+        shiftedEvent = df_sorted["eventType"].shift(1)
+        return (shiftedEvent == 'SHOT').astype(int).reindex(self.df.index)
 
-        # If last event features are not pre-calculated, calculate them
-        if not self.lastEventFeatures:
-            valuesDict = self.calculateLastEventFeatures()
-
-        # Now check if valuesDict was assigned. If not, it means last event features should be present in self.df
-        if valuesDict is None:
-            # Assuming that the last event features are already in self.df if self.lastEventFeatures is True
-            return (self.df['LastEventType'] == "SHOT").astype(int)
-        else:
-            # Using valuesDict if it was assigned by calculateLastEventFeatures
-            return (valuesDict['LastEventType'] == "SHOT").astype(int)
-
-
-    def calculateChangeOfAngle(self):
+    def calculateChangeAngle(self):
         '''
-        Calculate the change of angle between the events, if the last event was a shot.
+        Calculate the change of angle before the shot.
+        Only calculate if the last event was a shot, else return 0.
         '''
-        # Check if last event features are pre-calculated, if not, calculate them
-        if not self.lastEventFeatures:
-            valuesDict = self.calculateLastEventFeatures()
-        else:
-            # Extract last angle to goal from self.df if it's already calculated
-            valuesDict = {
-                'LastAngleToGoal': self.df['LastAngleToGoal']
-            }
+        df_sorted = self.df.sort_values(by=['gameId', 'period', 'periodTime']).copy()
+        shiftedAngle = df_sorted["angleToGoal"].shift(1)
+        last_event_shot = self.calculateRebound()  # This checks if the last event was a shot
 
-        # Check if angle to goal is pre-calculated, if not, calculate it
-        if not self.angleToGoal:
-            currentAngles = self.calculateAngleToGoal()
-        else:
-            # Use existing angle to goal values from self.df if they're already calculated
-            currentAngles = self.df['angleToGoal']
+        change_angle = np.abs(df_sorted["angleToGoal"] - shiftedAngle)
+        change_angle = change_angle * last_event_shot  # Zero out change in angles where last event wasn't a shot
 
-        # Calculate the change of angle
-        changeOfAngle = np.abs(currentAngles - valuesDict['LastAngleToGoal'])
-        return changeOfAngle
+        return change_angle.reindex(self.df.index)
 
     def calculateSpeed(self):
         '''
-        Calculate the speed between two consecutive events.
+        Calculate the speed of the player before the shot.
         '''
-        # Check if the last event features are already calculated
-        if self.lastEventFeatures:
-            # Use the existing last event features from self.df
-            valuesDict = {
-                'distanceFromLastEvent': self.df['distanceFromLastEvent'],
-                'timeElapsed': self.df['timeElapsed']
-            }
-        else:
-            # Calculate last event features since they are not pre-calculated
-            valuesDict = self.calculateLastEventFeatures()
-        
-        # Protect against division by zero
-        timeElapsed = valuesDict['timeElapsed'].replace(0, np.nan)
-        
-        # Calculate speed
-        speed = valuesDict['distanceFromLastEvent'] / timeElapsed
-        return speed.replace(np.nan, 0)  # Replace NaN values with 0 for speed if timeElapsed was 0
+        distances = self.calculateDistanceFromLastEvent()
+        timeElapsed = self.calculateTimeElapsed()
+        #timeElapsed = timeElapsed.replace(0, 1e-100)
+        speed = (distances / timeElapsed).replace(np.inf, 0)
+        return speed.reindex(self.df.index)
+
+    def parse_period_time(self, time_str):
+        """Convert period time string to a timedelta object."""
+        minutes, seconds = map(int, time_str.split(':'))
+        return timedelta(minutes=minutes, seconds=seconds)
+
+    def calculatePowerPlayFeatures(self):
+        '''
+        Calculate power play features: elapsedPowerPlay, homeSkaters, awaySkaters.
+        '''
+        df = self.df.sort_values(by=['gameId', 'period', 'periodTime']).copy()
+        df['periodTimeDelta'] = df['periodTime'].apply(self.parse_period_time)
+        df['elapsedPowerPlay'] = 0
+
+        current_game_id = None
+        penalties = {'home': [], 'away': []}
+        last_power_play_time = {'home': None, 'away': None}
+
+        for index, row in df.iterrows():
+            if row['gameId'] != current_game_id:
+                current_game_id = row['gameId']
+                penalties = {'home': [], 'away': []}
+                last_power_play_time = {'home': None, 'away': None}
+                df.at[index, 'homeSkaters'] = df.at[index, 'awaySkaters'] = 5
+
+            current_time = row['periodTimeDelta'] + timedelta(minutes=20 * (row['period'] - 1))
+
+            # Update skater counts and remove expired penalties
+            for team in ['home', 'away']:
+                penalties[team] = [penalty for penalty in penalties[team] if penalty[0] > current_time]
+                df.at[index, f'{team}Skaters'] = 5 - len(penalties[team])
+                df.at[index, f'{team}Skaters'] = max(df.at[index, f'{team}Skaters'], 3)
+
+            # Handle penalty
+            if pd.notna(row['penaltyMinutes']):
+                penalized_team = 'home' if row['homeTeam'] == row['penalizedTeam'] else 'away'
+                penalty_duration = timedelta(minutes=int(row['penaltyMinutes']))
+                penalty_end_time = current_time + penalty_duration
+                penalties[penalized_team].append((penalty_end_time, penalty_duration))
+
+            # Determine if there's a power play
+            if df.at[index, 'homeSkaters'] != df.at[index, 'awaySkaters']:
+                if last_power_play_time['home'] is None and last_power_play_time['away'] is None:
+                    last_power_play_time['home'] = last_power_play_time['away'] = current_time
+                df.at[index, 'elapsedPowerPlay'] = (current_time - last_power_play_time['home']).total_seconds()
+            else:
+                last_power_play_time = {'home': None, 'away': None}
+                df.at[index, 'elapsedPowerPlay'] = 0
+
+        df.drop(columns=['periodTimeDelta'], inplace=True)
+        return df["elapsedPowerPlay"].reindex(self.df.index), df["homeSkaters"].reindex(self.df.index), df["awaySkaters"].reindex(self.df.index)
