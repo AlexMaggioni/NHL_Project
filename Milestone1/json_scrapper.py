@@ -9,7 +9,7 @@ class JsonParser:
     """
     Class to Parse the json files from the NHL API to construct a DataFrame.
     
-    For now, the solel useful use of this class is to instantiate it via the static method `load_all_seasons`.
+    For now, the sole useful use of this class is to instantiate it via the static method `load_all_seasons`.
     """    
 
     def __init__(
@@ -26,15 +26,16 @@ class JsonParser:
         if df is not None:
             self.df = df
         elif path:
-            self.df = self.parse_json_file()
+            self.df = self.parse_json_file(args.shotGoalOnly)
         else:
             self.df = pd.DataFrame()
 
-
-    def parse_json_file(self):
+    def parse_json_file(self, shotGoalOnly):
         '''
-        The most important function of the class.
         Parse the json file and return a DataFrame containing the plays.
+
+        :param shotGoalOnly: If True, filter plays with eventTypeId in ["GOAL", "SHOT"]. If False, include all event types.
+        :return: DataFrame containing the parsed data.
         '''
         with open(self.path, "r") as f:
             data = json.load(f)
@@ -71,8 +72,7 @@ class JsonParser:
         for play in liveData:
             row_data = base_data.copy()
 
-            if play["result"]["eventTypeId"] in ["GOAL", "SHOT"]:
-
+            if not shotGoalOnly or play["result"]["eventTypeId"] in ["GOAL", "SHOT"]:
                 period = int(play.get("about", {}).get("period", None))
                 periodTime = play.get("about", {}).get("periodTime", None)
                 byTeam = play.get("team", {}).get("triCode", None)
@@ -80,14 +80,14 @@ class JsonParser:
                 shotType = play.get("result", {}).get("secondaryType", None)
                 coordinateX = play.get("coordinates", {}).get("x", None)
                 coordinateY = play.get("coordinates", {}).get("y", None)
- 
+
                 # jq request to see `.liveData.plays.allPlays.[] | select(.result.eventTypeId=="GOAL") | .result.strength | keys`
-                strength = play.get("result", {}).get("strength", None) .get("code", None)  if play["result"]["eventTypeId"]=='GOAL' else None
-                
+                strength = play.get("result", {}).get("strength", None).get("code", None) if play["result"]["eventTypeId"] == 'GOAL' else None
+
                 emptyNet = play.get("result", {}).get("emptyNet", False)
 
                 shooterName = None
-                goalieName = None  
+                goalieName = None
 
                 for player in play.get("players", []):
                     if player.get("playerType", "") in ["Scorer", "Shooter"]:
@@ -117,7 +117,7 @@ class JsonParser:
                 rows.append(row_data)
 
         df = pd.DataFrame(rows)
-        
+
         return df
 
     def __add__(self, other):
@@ -129,7 +129,8 @@ class JsonParser:
     @staticmethod
     def load_all_seasons(
         path_csv_output : Path,
-        seasons_to_consider : list[int]):
+        seasons_to_consider : list[int],
+        shotGoalOnly: bool):
         
         
         if os.path.exists(path_csv_output):
@@ -167,8 +168,9 @@ class JsonParser:
 
 def cli_args():
     '''
-    CLI Interface, to specify for now :
+    CLI Interface, to specify for now:
         - path of the csv file (value specified by the value returned as pathlib.Path)
+        - shotGoalOnly argument
     '''
     import argparse
     parser = argparse.ArgumentParser(
@@ -185,6 +187,7 @@ def cli_args():
     )
     parser.add_argument('-p_csv', '--path_to_csv', type=str, required=True, help='Path to the csv file. WILL BE CONCATENATED WITH the .env\'s DATA_FOLDER var. PUT THE COMMIT ID IN THE NAME !!!!!!!!!!!!!!11')
     parser.add_argument('-y','--years', required=True, nargs='+', type=str, help='years of seasons to iterate on')
+    parser.add_argument('--shotGoalOnly', action='store_true', help='Filter only "GOAL" and "SHOT" events')
     args = parser.parse_args()
     return args
 
@@ -196,8 +199,8 @@ if __name__ == "__main__":
     logger = init_logger("json_scrapper.log")
     args = cli_args()
 
-
     JsonParser.load_all_seasons(
         args.path_to_csv,
-        args.years
+        args.years,
+        args.shotGoalOnly
     )
