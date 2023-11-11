@@ -463,7 +463,11 @@ def init_logger():
 
 if __name__ == "__main__":
 
-    from utils.utils  import init_logger, verify_dotenv_file
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+    from utils.utils import init_logger, verify_dotenv_file
 
     verify_dotenv_file(Path(__file__).parent.parent)
     logger = init_logger("nhl_rest_api_fetcher.log")
