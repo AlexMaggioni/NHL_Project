@@ -236,7 +236,7 @@ if __name__ == "__main__":
     parent_dir = Path(__file__).parent.parent
     sys.path.insert(0, str(parent_dir))
 
-    from utils import init_logger, verify_dotenv_file
+    from utils.utils  import init_logger, verify_dotenv_file
 
     verify_dotenv_file(parent_dir)
     logger = init_logger("json_scrapper.log")
