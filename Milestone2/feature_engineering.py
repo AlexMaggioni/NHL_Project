@@ -17,7 +17,7 @@ class NHLFeatureEngineering:
             isGoal: bool,
             emptyNet: bool,
             verbose: bool,
-            inputRinkSide: bool,
+            imputeRinkSide: bool,
             periodTimeSeconds: bool,
             lastEvent: bool,
             lastCoordinates: bool,
@@ -32,7 +32,7 @@ class NHLFeatureEngineering:
         self.df = df
         self.dfUnify = pd.DataFrame()
         self.verbose = verbose
-        self.inputRinkSide = inputRinkSide
+        self.imputeRinkSide = imputeRinkSide
         self.GOAL_POSITION = GOAL_POSITION
         logger.info(f"Calculations of distance/angle done w.r.t GOAL_POSITION = {self.GOAL_POSITION}")
 
@@ -53,7 +53,7 @@ class NHLFeatureEngineering:
         if self.distanceToGoal or self.angleToGoal:
             self.dfUnify = self._printNaStatsBeforeUnifying()
             logger.info("UNIFYING THE DATAFRAME ON ONE RINKSIDE")
-            self.dfUnify = unify_coordinates_referential(self.dfUnify, self.inputRinkSide)
+            self.dfUnify = unify_coordinates_referential(self.dfUnify, self.imputeRinkSide)
 
         if self.distanceToGoal:
             logger.info("CALCULATING DISTANCE TO GOAL - ADDING COLUMN distanceToGoal TO DATAFRAME")
@@ -149,7 +149,7 @@ class NHLFeatureEngineering:
                     {len(naOnlyYSetIndex)} shots without Y coordinates.
                 
                 RinkSide NA stats:
-                    {len(rinkSideNa)} shots without rinkSide specified. Use inputRinkSide == True to handle missing 
+                    {len(rinkSideNa)} shots without rinkSide specified. Use imputeRinkSide == True to handle missing 
                     values based on mean X coordinates in a period for a given team and gameId.
             """)
         return self.df
@@ -209,7 +209,8 @@ class NHLFeatureEngineering:
         '''
         Calculate the last coordinates just before the current one.
         '''
-        df_sorted = self.df.sort_values(by=['gameId', 'period', 'periodTime']).copy()
+        unifiedCoordinatesDf = unify_coordinates_referential(self.df, True)
+        df_sorted = unifiedCoordinatesDf.sort_values(by=['gameId', 'period', 'periodTime']).copy()
         shiftedX = df_sorted["coordinateX"].shift(1)
         shiftedY = df_sorted["coordinateY"].shift(1)
         return shiftedX.reindex(self.df.index), shiftedY.reindex(self.df.index)
@@ -225,8 +226,10 @@ class NHLFeatureEngineering:
         '''
         Calculate the distance from the last event.
         '''
-        df_sorted = self.df.sort_values(by=['gameId', 'period', 'periodTime']).copy()
-        shiftedX, shiftedY = self.calculateLastCoordinates()
+        unifiedCoordinatesDf = unify_coordinates_referential(self.df, True)
+        df_sorted = unifiedCoordinatesDf.sort_values(by=['gameId', 'period', 'periodTime']).copy()
+        shiftedX = df_sorted["coordinateX"].shift(1)
+        shiftedY = df_sorted["coordinateY"].shift(1)
         distances = np.linalg.norm(
             df_sorted[["coordinateX", "coordinateY"]].values - np.array([shiftedX, shiftedY]).T,
             axis=1
@@ -249,10 +252,10 @@ class NHLFeatureEngineering:
         '''
         df_sorted = self.df.sort_values(by=['gameId', 'period', 'periodTime']).copy()
         shiftedAngle = df_sorted["angleToGoal"].shift(1)
-        last_event_shot = self.calculateRebound()  # This checks if the last event was a shot
+        last_event_shot = (df_sorted["eventType"].shift(1) == "SHOT").astype(int)
 
         change_angle = np.abs(df_sorted["angleToGoal"] - shiftedAngle)
-        change_angle = change_angle * last_event_shot  # Zero out change in angles where last event wasn't a shot
+        change_angle = change_angle * last_event_shot
 
         return change_angle.reindex(self.df.index)
 
@@ -260,10 +263,19 @@ class NHLFeatureEngineering:
         '''
         Calculate the speed of the player before the shot.
         '''
-        distances = self.calculateDistanceFromLastEvent()
-        timeElapsed = self.calculateTimeElapsed()
-        #timeElapsed = timeElapsed.replace(0, 1e-100)
-        speed = (distances / timeElapsed).replace(np.inf, 0)
+        df_sorted = self.df.sort_values(by=['gameId', 'period', 'periodTime']).copy()
+
+        shiftedX = df_sorted["coordinateX"].shift(1)
+        shiftedY = df_sorted["coordinateY"].shift(1)
+        distances = np.linalg.norm(
+            df_sorted[["coordinateX", "coordinateY"]].values - np.array([shiftedX, shiftedY]).T,
+            axis=1
+        )
+        distances_series = pd.Series(distances, index=df_sorted.index)
+
+        timeElapsed = df_sorted['periodTime'].apply(lambda x: int(x.split(':')[0]) * 60 + int(x.split(':')[1]))
+        timeElapsed = timeElapsed.replace(0, 1e-100)
+        speed = (distances_series / timeElapsed).replace(np.inf, 0)
         return speed.reindex(self.df.index)
 
     def parse_period_time(self, time_str):
