@@ -1,289 +1,223 @@
-from itertools import cycle
-from typing import List, Tuple
-from matplotlib import pyplot as plt
-from matplotlib.gridspec import GridSpec
 import numpy as np
-import pandas as pd
 from pathlib import Path
-
-import pandas as pd
-
 from rich import print
-import pandas as pd
-from sklearn.base import BaseEstimator
-from sklearn.calibration import CalibrationDisplay
-from sklearn.metrics import RocCurveDisplay
+from sklearn.metrics import roc_curve, auc, calibration_curve
+import seaborn as sns
+import matplotlib.pyplot as plt
 
-def plot_ROC_curve(
-        y_true : np.ndarray, 
-        y_proba : List[np.ndarray], 
-        title_curve : List[str],
-        title : str,
-        output_path : Path,
-    ):
-    """Plot ROV curves handling several models predictions, so can output plot with several curves.
-
-    Args:
-        y_true (np.ndarray): ground-truth labels
-        y_proba (List[np.ndarray]): probabilities of the positive class
-        title_curve (List[str]): Name of each curves
-        title (str): global plot title
-        output_path (Path): path where plot will be saved
-    """    
-    
-    from itertools import cycle
-
-    fig, ax = plt.subplots(figsize=(6, 6))
-    
-    colors = cycle(["aqua", "darkorange", "cornflowerblue"])
-    for i, (t, preds_proba, color) in enumerate(zip(title_curve, y_proba, colors)):
-        
-        kwargs_fn = {'plot_chance_level':False}
-        if i == 0:
-            kwargs_fn = {'plot_chance_level':True}
-        
-        RocCurveDisplay.from_predictions(
-            y_true,
-            preds_proba,
-            name=t,
-            color=color,
-            ax=ax,
-            **kwargs_fn,
-        )
-
-    plt.axis("square")
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title(title)
-    plt.legend()
-    plt.savefig(output_path)
-
-def ratio_goal_wrt_percentile_fn(
-    X : np.ndarray,
-    q : np.ndarray,
-) -> Tuple[np.ndarray,np.ndarray]:
-
-    '''
-    Soit X ∈ R^n le vecteur de probabilités pour la classe positive (GOAL) donnée par le modèle, n le nombre d'exemples.
-    On définit la fonction f: [0,100] -> R telle que :
-
-        f(q) = length(q_percentile_preds > 0.5) / length(q_percentile_preds)
-            avec q_percentile_preds = conditional_subset(X, X_i < percentile(X, q))
-
-        où :
-            - conditional_subset(X, condition) est la fonction qui extrait 
-                tous les éléments de X  qui respecte la condition.
-
-            - percentile(X,q) est la fonction qui retourne le q-ème percentile de X.
-
-            - length(X) est la fonction qui retourne la taille d'un vecteur X.
-
-    Cette fonction calcule la quantité f(q) évoquée ci-dessus, d'une façon vectorisée
-    
-    Args:
-        X (np.ndarray): vecteur de prédictions sous forme de probabilités pour la classe positive (GOAL) donné par un modèle
-        q (np.ndarray): vecteur de percentile à calculer
-
-    Returns:
-        Tuple[np.ndarray,np.ndarray]: (
-            vecteur de f(q) pour chaque q, même taille que q
-            vecteur de nombre de buts (au lieu du ratio) pour chaque q, même taille que q
-    '''
-
-    # On calcule le percentile de X pour chaque q
-    X_q = np.percentile(X, q=q, axis=0)
-
-    ratio_goal = []
-    for q in X_q:
-        sub_X = X[X <= q]
-        nb_goal = np.sum(sub_X > 0.5)
-        ratio = nb_goal / len(sub_X)
-        ratio_goal.append((ratio, nb_goal))
-
-    # On calcule le ratio de buts pour chaque percentile
-    return zip(*ratio_goal)
-
-def plot_ratioORcumul_goal_percentile_curves(
-    y_true : np.ndarray, 
-    y_proba : List[np.ndarray], 
-    title_curve : List[str],
-    title : str,
-    output_path : Path,
-    ratio_goal : bool,
-    random_model_line : bool,
+def plotRocCurves(
+    predictionsTest: dict,
+    yTest: np.array, 
+    outputPath: str = None
 ):
     """
-    étant donné, un vecteur de prédictions sous forme de probabilités pour la classe positive (GOAL)
-    construit le taux de buts (#buts / (#non_buts + #buts)) en fonction du centile de
-    la probabilité de but donnée par le modèle.
-
-    Voir la fonction 
-
-    Args:
-        y_true (np.ndarray): ground-truth labels
-        y_proba (List[np.ndarray]): probabilities of the positive class for different models trained on different set of features
-        title_curve (List[str]): Name of each curves
-        title (str): global plot title
-        output_path (Path): path where plot will be saved
-        ratio_goal (bool): if True, plot the ratio of goals, otherwise plot the cumulative number of goals
-    """        
-    from itertools import cycle
-
-    fig, ax = plt.subplots(figsize=(6, 6))
+    Plot ROC curves for the given predictions and ground truth values.
+    :param predictions: Dictionary of model names and corresponding predictions
+    :param yTest: Ground truth values
+    :param outputPath: Path to save the plot to
+    """
     
-    colors = cycle(["aqua", "darkorange", "cornflowerblue"])
-    q_grid = np.linspace(0, 100, 6001)
+    # Check if outputPath is None and raise an error if it is
+    if outputPath is None:
+        raise ValueError("outputPath cannot be None. Please provide a valid file path.")
 
-    for t, preds_proba, color in zip(title_curve, y_proba, colors):
+    sns.set_theme(style="whitegrid")
+    plt.figure(figsize=(10, 8))
+    
+    for modelName, modelPredictions in predictionsTest.items():
+        goalProb = modelPredictions[:, 1]
+        fpr, tpr, _ = roc_curve(yTest, goalProb)
+        rocAuc = auc(fpr, tpr)
+        plt.plot(fpr, tpr, lw=2, label=f'{modelName} (AUC = {rocAuc:.2f})')
+
+    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--', label='Classificateur Aléatoire (AUC = 0.50)')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('Taux de Faux Positifs', fontsize=12)
+    plt.ylabel('Taux de Vrais Positifs', fontsize=12)
+    plt.title('Courbe ROC', fontsize=14)
+    plt.legend(loc="lower right")
+
+    # Save the plot
+    plt.savefig(Path(outputPath), bbox_inches='tight')  # Save the figure to the specified path
+
+def plotCombinedGoalRates(
+    predictionsTest: dict, 
+    yTest: np.array, 
+    outputPath: str = None, 
+    binWidth: int = 5
+):
+    """
+    Plot combined goal rates for the given predictions and ground truth values.
+    :param predictions: Dictionary of model names and corresponding predictions
+    :param yTest: Ground truth values
+    :param outputPath: Path to save the plot to
+    :param binWidth: Width of each bin for calculating goal rates
+    """
+    
+    # Check if outputPath is None and raise an error if it is
+    if outputPath is None:
+        raise ValueError("outputPath cannot be None. Please provide a valid file path.")
+
+    plt.figure(figsize=(10, 6))
+
+    for modelName, modelPredictions in predictionsTest.items():
+        goalProb = modelPredictions[:, 1]
+
+        modelPercentiles = []
+        modelGoalRates = []
+
+        for lowerBound in np.arange(0, 100, binWidth):
+            upperBound = lowerBound + binWidth
+            mask = (goalProb >= np.percentile(goalProb, lowerBound)) & (goalProb < np.percentile(goalProb, upperBound))
+
+            totalShots = np.sum(mask)
+            totalGoals = np.sum(yTest[mask])
+            goalRate = (totalGoals / totalShots) * 100 if totalShots > 0 else 0
+
+            modelPercentiles.append(lowerBound)
+            modelGoalRates.append(goalRate)
+
+        sns.lineplot(x=modelPercentiles, y=modelGoalRates, label=modelName, marker='o', markersize=8)
+
+    plt.gca().invert_xaxis()
+    plt.xticks(np.arange(0, 101, 10))
+    plt.yticks(np.arange(0, 101, 10))
+    plt.xlabel('Percentile de Probabilité du Modèle', fontsize=12)
+    plt.ylabel('Taux de Buts (%)', fontsize=12)
+    plt.title('Taux de Buts par Percentile de Probabilité', fontsize=14)
+    plt.legend(title='Modèle')
+
+    # Save the plot
+    plt.savefig(Path(outputPath), bbox_inches='tight')  # Save the figure to the specified path
+
+def plotCumulativeGoals(
+    predictionsTest: dict, 
+    yTest: np.array, 
+    outputPath: str = None, 
+    binWidth: int = 5
+):
+    """
+    Plot cumulative goals for the given predictions and ground truth values.
+    :param predictions: Dictionary of model names and corresponding predictions
+    :param yTest: Ground truth values
+    :param outputPath: Path to save the plot to
+    :param binWidth: Width of each bin for calculating cumulative goals
+    """
+    
+    # Check if outputPath is None and raise an error if it is
+    if outputPath is None:
+        raise ValueError("outputPath cannot be None. Please provide a valid file path.")
+
+    plt.figure(figsize=(10, 6))
+
+    for modelName, modelPredictions in predictionsTest.items():
+        goalProb = modelPredictions[:, 1]  # Assuming the second column is the probability of a goal
+
+        # Calculate percentiles
+        percentiles = np.percentile(goalProb, np.arange(0, 100, binWidth))
         
-        y_values = list(ratio_goal_wrt_percentile_fn(preds_proba, q_grid))
+        cumulativeGoals = []
+        modelPercentiles = np.arange(0, 100, binWidth)
+        totalGoals = np.sum(yTest)
 
-        plt.plot(
-            q_grid,
-            y_values[0] if ratio_goal else y_values[1],
-            label=t,
-            color=color,
-        )
+        for percentile in percentiles:
+            # Select data where goalProb is higher than the current percentile
+            mask = goalProb >= percentile
+            cumulativeGoals.append(np.sum(yTest[mask]) / totalGoals)
 
-    if random_model_line:
+        # Plot
+        plt.plot(modelPercentiles, cumulativeGoals, marker='o', label=modelName)
 
-        preds_proba_base_model = np.random.uniform(0,1,y_proba[0].shape[0])
-
-        y_values = list(ratio_goal_wrt_percentile_fn(preds_proba_base_model, q_grid))
-
-        plt.plot(
-            q_grid,
-            y_values[0] if ratio_goal else y_values[1],
-            label='Random model line',
-            color='red',
-        )
-
-    plt.xlabel("GOAL probability model percentile")
-    if ratio_goal:
-        plt.ylabel("Goals ratio : #Goals / (#Goals + #No Goals)")
-    else:
-        plt.ylabel("Proportion of goals")
-    plt.title(title)
+    plt.xticks(np.arange(0, 101, 10))
+    plt.yticks(np.arange(0, 1.1, 0.1))
+    plt.gca().invert_xaxis()
+    plt.xlabel('Percentile de Probabilité du Modèle', fontsize=12)
+    plt.ylabel('Proportion Cumulative de Buts', fontsize=12)
+    plt.title('Proportion Cumulative de Buts par Percentile de Probabilité', fontsize=14)
     plt.legend()
-    plt.savefig(output_path)
 
-def plot_calibration_curve(
-    y_true : np.ndarray, 
-    y_proba : List[np.ndarray], 
-    title_curve : List[str],
-    title : str,
-    output_path : Path,
+    # Save the plot
+    plt.savefig(Path(outputPath), bbox_inches='tight')  # Save the figure to the specified path
+
+def plotCalibrationCurves(
+    predictionsTest: dict, 
+    yTest: np.array, 
+    outputPath: str = None, 
+    nBins: int = 10
 ):
-    fig = plt.figure(figsize=(10, 10))
-    gs = GridSpec(len(y_proba)+1, 2)
-    colors = plt.get_cmap("Dark2")
+    """
+    Plot calibration curves for the given predictions and test values.
+    :param predictionsDict: Dictionary of model names and corresponding predictions
+    :param yTest: Test labels
+    :param outputPath: Path to save the plot to
+    :param nBins: Number of bins to use for calibration
+    """
+    
+    # Check if outputPath is None and raise an error if it is
+    if outputPath is None:
+        raise ValueError("outputPath cannot be None. Please provide a valid file path.")
 
-    ax_calibration_curve = fig.add_subplot(gs[:2, :2])
-    calibration_displays = {}
-    markers = cycle(["^", "v", "s", "o"])
-    for i, (t, preds_proba, marker) in enumerate(zip(title_curve, y_proba, markers)):
+    sns.set(style='whitegrid')
+    fig, ax = plt.subplots(figsize=(10, 8))
 
-        kwargs_fn = {'ref_line':False}
-        if i == 0:
-            kwargs_fn = {'ref_line':True}
+    for modelName, yProb in predictionsTest.items():
+        goalProb = yProb[:, 1]  # Assuming the second column is the probability of a goal
+        probTrue, probPred = calibrationCurve(yTest, goalProb, nBins=nBins)
+        ax.plot(probPred, probTrue, marker='o', label=modelName)
 
-        display = CalibrationDisplay.from_predictions(
-            y_true,
-            preds_proba,
-            name=t,
-            ax=ax_calibration_curve,
-            **kwargs_fn,
-            n_bins=10,
-            strategy='uniform',
-            color=colors(i),
-            marker=marker,
-        )
-        calibration_displays[t] = display
+    ax.plot([0, 1], [0, 1], 'k--', label='Parfaitement Calibré')
+    ax.set_xlabel('Probabilité Prédite Moyenne (Classe Positive : 1)', fontsize=12)
+    ax.set_ylabel('Fraction de Positifs', fontsize=12)
+    ax.set_title('Graphique de Calibration', fontsize=14)
+    ax.legend(loc='best')
 
-    ax_calibration_curve.grid()
-    ax_calibration_curve.set_title(title)
+    # Save the plot
+    plt.savefig(Path(outputPath), bbox_inches='tight')  # Save the figure to the specified path
 
-    # Add histogram
-    grid_positions = [(2, 0), (2, 1), (3, 0), (3, 1)]
-    for i, name in enumerate(title_curve):
-        row, col = grid_positions[i]
-        ax = fig.add_subplot(gs[row, col])
-
-        ax.hist(
-            calibration_displays[name].y_prob,
-            range=(0, 1),
-            bins=10,
-            label=name,
-            color=colors(i),
-        )
-        ax.set(title=name, xlabel="Mean predicted probability", ylabel="Count")
-
-    plt.savefig(output_path)
-
-def plot_perf_model(
-    ROC_curve : bool,
-    ratio_goal_percentile_curve : bool,
-    proportion_goal_percentile_curve : bool,
-    calibration_curve : bool,
-    stats : dict,
-    split : str,
-    y_true : np.ndarray,
-    OUTPUT_DIR : Path,
-    model_type : str,
+def plotPerfModel(
+    predictionsTest: dict,
+    yTest: np.ndarray,
+    outputDir: Path,
+    rocCurve: bool,
+    ratioGoalPercentileCurve: bool,
+    proportionGoalPercentileCurve: bool,
+    calibrationCurve: bool
 ):
-    if split not in ['train', 'val', 'test']:
-        raise ValueError(f'split must be in ["train", "val", "test"], got {split}')
-    
-    OUTPUT_DIR = OUTPUT_DIR / split
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    outputDir.mkdir(parents=True, exist_ok=True)
 
-    y_proba = [ d_with_preds[split]['proba_preds'][:,1] for _, d_with_preds in stats.items()]
-    title_curve = [ feature_set for feature_set, _ in stats.items()]
-    
-    if ROC_curve:
-        output_file = OUTPUT_DIR / "val_ROC_curves.png"
-        plot_ROC_curve(
-            y_true = y_true,
-            y_proba = y_proba,
-            title_curve = title_curve,
-            title = 'ROC curves: \n {model_type} trained on different set of features',
-            output_path = output_file,
+    if rocCurve:
+        outputFile = outputDir / "ROC_curves.png"
+        plotRocCurves(
+            predictionsTest=predictionsTest,
+            yTest=yTest,
+            outputPath=outputFile
         )
-        print(f'ROC curves for val set saved at {output_file}')
+        print(f'ROC curves saved at {outputFile}')
 
-    if ratio_goal_percentile_curve:
-        output_file = OUTPUT_DIR / "val_ratio_goal_percentile_curves.png"
-        plot_ratioORcumul_goal_percentile_curves(
-            y_true,
-            y_proba,
-            title_curve,
-            'Goal Rate: \n {model_type} trained on different set of features',
-            output_file,
-            ratio_goal = True,
-            random_model_line=True,
+    if ratioGoalPercentileCurve:
+        outputFile = outputDir / "ratio_goal_percentile_curves.png"
+        plotCombinedGoalRates(
+            predictionsTest=predictionsTest,
+            yTest=yTest,
+            outputPath=outputFile
         )
-        print(f'Goal Ratio wrt percentile plot for val set saved at {output_file}')
+        print(f'Goal Ratio wrt percentile plot saved at {outputFile}')
 
-    if proportion_goal_percentile_curve:
-        output_file = OUTPUT_DIR / "val_proportion_goal_percentile_curves.png"
-        plot_ratioORcumul_goal_percentile_curves(
-            y_true,
-            y_proba,
-            title_curve,
-            'Cumulative \% of goals: \n {model_type} trained on different set of features',
-            output_file,
-            ratio_goal = False,
-            random_model_line=True,
+    if proportionGoalPercentileCurve:
+        outputFile = outputDir / "proportion_goal_percentile_curves.png"
+        plotCumulativeGoals(
+            predictionsTest=predictionsTest,
+            yTest=yTest,
+            outputPath=outputFile
         )
-        print(f'Cumulative Number of Goal wrt percentile plot for val set saved at {output_file}')
+        print(f'Cumulative Number of Goals wrt percentile plot saved at {outputFile}')
     
-    if calibration_curve:
-        output_file = OUTPUT_DIR / "val_calibration_curves.png"
-        plot_calibration_curve(
-            y_true,
-            y_proba,
-            title_curve,
-            'Calibration curves: \n {model_type} trained on different set of features',
-            output_file,
+    if calibrationCurve:
+        outputFile = outputDir / "calibration_curves.png"
+        plotCalibrationCurves(
+            predictionsTest=predictionsTest,
+            yTest=yTest,
+            outputPath=outputFile
         )
-        print(f'Calibration curves for val set saved at {output_file}')
+        print(f'Calibration curves saved at {outputFile}')
