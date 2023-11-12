@@ -1,3 +1,7 @@
+# provide file path to raw data 
+# path must be relative to ROOT DIRECTORY specified by env var DATA_FOLDER in .env file
+raw_train_data_path: json_scrapper_output/data_2016_2020_7ecc5b717675.csv
+
 distanceToGoal: True
 angleToGoal: True
 isGoal: True
@@ -13,3 +17,19 @@ rebound: True
 changeAngle: True
 speed: True
 computePowerPlayFeatures: True
+
+# version of the Feature Engineering pipeline
+# will determine in which subdir of data/feature_engineering_outpout/ the engineered data will be saved
+feature_engineering_version: 1
+
+# path to load feature-engineered data from (avoid to recompute all proocessing That can be long)
+# path must be relative to ROOT DIRECTORY specified by env var DATA_FOLDER in .env file
+# if None, feature engineering will be recomputed
+load_engineered_data_from: feature_engineering_output/v1/data_2016_2020_7ecc5b717675/103/df_Unify.csv # data/processed/feature_engineered_data_v1.csv
+
+
+# vous pouvez approximer le filet en un seul point (c'est-à-dire que vous n'avez pas
+# besoin de tenir compte de la largeur du filet lors du calcul de la distance ou de l'angle).
+# x, y 
+GOAL_POSITION_X: 89
+GOAL_POSITION_Y: 0

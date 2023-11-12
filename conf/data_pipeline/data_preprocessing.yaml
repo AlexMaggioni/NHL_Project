@@ -17,3 +17,5 @@ seed : 42
 
 label : 
   - isGoal
+
+predicate_train_test_split : 'season == 2020'

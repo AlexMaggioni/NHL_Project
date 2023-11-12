@@ -1,9 +1,14 @@
+from typing import List
+from comet_ml import Experiment
 import numpy as np
 from pathlib import Path
+import pandas as pd
 from rich import print
-from sklearn.metrics import roc_curve, auc, calibration_curve
+from sklearn.calibration import calibration_curve
+from sklearn.metrics import roc_curve, auc
 import seaborn as sns
 import matplotlib.pyplot as plt
+import xgboost
 
 def plotRocCurves(
     predictionsTest: dict,
@@ -163,7 +168,7 @@ def plotCalibrationCurves(
 
     for modelName, yProb in predictionsTest.items():
         goalProb = yProb[:, 1]  # Assuming the second column is the probability of a goal
-        probTrue, probPred = calibrationCurve(yTest, goalProb, nBins=nBins)
+        probTrue, probPred = calibration_curve(yTest, goalProb, n_bins=nBins)
         ax.plot(probPred, probTrue, marker='o', label=modelName)
 
     ax.plot([0, 1], [0, 1], 'k--', label='Parfaitement Calibré')
@@ -183,7 +188,7 @@ def plotPerfModel(
     ratioGoalPercentileCurve: bool,
     proportionGoalPercentileCurve: bool,
     calibrationCurve: bool
-):
+) -> List[Path]:
     outputDir.mkdir(parents=True, exist_ok=True)
 
     res_output = []
@@ -230,7 +235,7 @@ def plotPerfModel(
     
     return res_output
 
-def plot_xgboost_losses(results, OUTPUT_DIR, title):
+def plot_XGBOOST_losses(results, OUTPUT_DIR, title) -> List[Path]:
 
     res = []
 
@@ -258,3 +263,56 @@ def plot_xgboost_losses(results, OUTPUT_DIR, title):
     res.append(OUTPUT_DIR / f'{title}_merror.png')
 
     return res
+
+def plot_XGBOOST_feat_importance(
+        OUTPUT_DIR : Path,
+        COMET_EXPERIMENT : Experiment,
+        logger,
+        classifier : xgboost.XGBClassifier,
+        X_train_samples : pd.DataFrame,
+):
+    PATH_GRAPHS = []
+
+    #feature importance plot
+    importances = classifier._Booster.get_score(importance_type=classifier.importance_type)
+    print(importances)
+    for key in importances:
+        COMET_EXPERIMENT.log_other(key, importances[key])
+        
+    COMET_EXPERIMENT.log_asset_data(importances)
+
+    logger.info(f"Plotting XGBoost feature importance at {OUTPUT_DIR}")
+    ax = xgboost.plot_importance(classifier)
+    ax.figure.savefig(str(OUTPUT_DIR / 'feature_importance.png'))
+
+    COMET_EXPERIMENT.log_image(str(OUTPUT_DIR / 'feature_importance.png'))
+
+    import shap
+        
+    logger.info(f"Plotting XGBoost SHAP values at {OUTPUT_DIR}")
+
+    # model_bytearray = classifier._Booster.save_raw('json')#[4:]
+    # def myfunc(self=None):
+    #     return model_bytearray
+    # classifier.save_raw = myfunc
+
+    explainer = shap.TreeExplainer(classifier)
+
+    shap_values = explainer.shap_values(X_train_samples)
+    shap.initjs()
+
+    # log decision plot
+    # FIXME : on the following line features_name should be
+    # shap.multioutput_decision_plot(explainer.expected_value, shap_values, X_train_samples.index, show=False)
+    # plt.savefig(str(OUTPUT_DIR / 'decision_plot.png'))
+    # COMET_EXPERIMENT.log_image(str(OUTPUT_DIR / 'decision_plot.png'))
+    # plt.clf()
+
+
+    feature_names = X_train_samples.columns
+    # log Summary plot
+    shap.summary_plot(shap_values, feature_names, show=False)
+    plt.savefig(str(OUTPUT_DIR / 'summary_plot.png'))
+    COMET_EXPERIMENT.log_image(str(OUTPUT_DIR / 'summary_plot.png'))
+
+    return PATH_GRAPHS

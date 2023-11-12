@@ -194,41 +194,6 @@ def verify_dotenv_file(position_of_execution : Path):
         raise RuntimeError(f"COULD NOT LOAD THE {file_dot_env_to_load} FILE FROM {position_of_execution}")
 
 
-# vous pouvez approximer le filet en un seul point (c'est-à-dire que vous n'avez pas
-# besoin de tenir compte de la largeur du filet lors du calcul de la distance ou de l'angle).
-# x, y 
-GOAL_POSITION = [89,0]
-
-from sklearn.metrics import (
-            balanced_accuracy_score,
-            accuracy_score,
-            precision_score,
-            recall_score,
-            f1_score,
-            )
-
-def assess_classifier_perf(y_val, y_val_pred):
-    res = {'accuracy' : {
-        'accuracy' : accuracy_score(y_val, y_val_pred),
-        'balanced_accuracy' : balanced_accuracy_score(y_val, y_val_pred),
-    },
-    'micro' : {
-        'precision': precision_score(y_val, y_val_pred, average='micro'),
-        'recall': recall_score(y_val, y_val_pred, average='micro'),
-        'f1': f1_score(y_val, y_val_pred, average='micro'),
-    },
-    'macro' : {
-        'precision': precision_score(y_val, y_val_pred, average='macro'),
-        'recall': recall_score(y_val, y_val_pred, average='macro'),
-        'f1': f1_score(y_val, y_val_pred, average='macro'),
-    },
-    'weighted' : {
-        'precision': precision_score(y_val, y_val_pred, average='weighted'),
-        'recall': recall_score(y_val, y_val_pred, average='weighted'),
-        'f1': f1_score(y_val, y_val_pred, average='weighted'),
-    },}
-
-    return res
 
 if __name__ == '__main__':
 

@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
-from utils.misc  import unify_coordinates_referential, init_logger, verify_dotenv_file, GOAL_POSITION
+from utils.misc  import unify_coordinates_referential, init_logger, verify_dotenv_file
 from datetime import timedelta
 
 verify_dotenv_file(Path(__file__).parent.parent)
@@ -30,6 +30,7 @@ class NHLFeatureEngineering:
             changeAngle: bool,
             speed: bool,
             computePowerPlayFeatures: bool,
+            GOAL_POSITION: list,
             version : int
         ):
         
