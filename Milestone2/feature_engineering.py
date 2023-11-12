@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 from utils.misc  import unify_coordinates_referential, init_logger, verify_dotenv_file, GOAL_POSITION
 from datetime import timedelta
 
@@ -372,7 +373,7 @@ class NHLFeatureEngineering:
         penalties = {'home': [], 'away': []}
         last_power_play_time = {'home': None, 'away': None}
 
-        for index, row in df.iterrows():
+        for index, row in tqdm(df.iterrows(), total=df.shape[0]):
             if row['gameId'] != current_game_id:
                 current_game_id = row['gameId']
                 penalties = {'home': [], 'away': []}

@@ -186,6 +186,8 @@ def plotPerfModel(
 ):
     outputDir.mkdir(parents=True, exist_ok=True)
 
+    res_output = []
+
     if rocCurve:
         outputFile = outputDir / "ROC_curves.png"
         plotRocCurves(
@@ -194,6 +196,7 @@ def plotPerfModel(
             outputPath=outputFile
         )
         print(f'ROC curves saved at {outputFile}')
+        res_output.append(outputFile)
 
     if ratioGoalPercentileCurve:
         outputFile = outputDir / "ratio_goal_percentile_curves.png"
@@ -203,6 +206,7 @@ def plotPerfModel(
             outputPath=outputFile
         )
         print(f'Goal Ratio wrt percentile plot saved at {outputFile}')
+        res_output.append(outputFile)
 
     if proportionGoalPercentileCurve:
         outputFile = outputDir / "proportion_goal_percentile_curves.png"
@@ -212,6 +216,7 @@ def plotPerfModel(
             outputPath=outputFile
         )
         print(f'Cumulative Number of Goals wrt percentile plot saved at {outputFile}')
+        res_output.append(outputFile)
     
     if calibrationCurve:
         outputFile = outputDir / "calibration_curves.png"
@@ -221,3 +226,35 @@ def plotPerfModel(
             outputPath=outputFile
         )
         print(f'Calibration curves saved at {outputFile}')
+        res_output.append(outputFile)
+    
+    return res_output
+
+def plot_xgboost_losses(results, OUTPUT_DIR, title):
+
+    res = []
+
+    epochs = len(results['validation_0']['mlogloss'])
+    x_axis = range(0, epochs)
+
+    # xgboost 'mlogloss' plot
+    fig, ax = plt.subplots(figsize=(9,5))
+    ax.plot(x_axis, results['validation_0']['mlogloss'], label='Train')
+    ax.plot(x_axis, results['validation_1']['mlogloss'], label='Val')
+    ax.legend()
+    plt.ylabel('mlogloss')
+    plt.title('{title} mlogloss')
+    plt.savefig(OUTPUT_DIR / f'{title}_mlogloss.png')
+    res.append(OUTPUT_DIR / f'{title}_mlogloss.png')
+
+    # xgboost 'merror' plot
+    fig, ax = plt.subplots(figsize=(9,5))
+    ax.plot(x_axis, results['validation_0']['merror'], label='Train')
+    ax.plot(x_axis, results['validation_1']['merror'], label='Val')
+    ax.legend()
+    plt.ylabel('merror')
+    plt.title('{title} merror')
+    plt.savefig(OUTPUT_DIR / f'{title}_merror.png')
+    res.append(OUTPUT_DIR / f'{title}_merror.png')
+
+    return res

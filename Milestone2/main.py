@@ -7,7 +7,17 @@ from matplotlib import pyplot as plt
 from omegaconf import DictConfig
 import pandas as pd
 from rich import print
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import (
+            confusion_matrix,
+            classification_report,
+            )
+from sklearn.metrics import (
+            balanced_accuracy_score,
+            accuracy_score,
+            precision_score,
+            recall_score,
+            f1_score,
+            )
 from comet_ml import Artifact, Experiment
 
 from data_preprocessing import NHL_data_preprocessor
@@ -27,10 +37,10 @@ def run_experiment(cfg: DictConfig) -> None:
     DATA_PIPELINE_CONFIG = cfg.data_pipeline
     print(dict(cfg))
 
-    COMET_EXPERIMENT = init_experiment(
-        project_name=cfg.comet_ml.project_name,
-        workspace=cfg.comet_ml.workspace,
-        display_summary_level=cfg.comet_ml.display_summary_level,
+    COMET_EXPERIMENT = Experiment(
+        api_key=os.getenv("COMET_API_KEY"),
+        project_name=f'{MODEL_CONFIG.model_type}',
+        workspace='nhl-project',
     )
 
     # =================================Prepare/Engineer Data==========================================================
@@ -82,13 +92,13 @@ def run_experiment(cfg: DictConfig) -> None:
             version_tags=None
         )
 
-        # for p in data_engineered.path_save_output.glob("*.csv"):
-        #     artifact.add(str(p))
+        for p in data_engineered.path_save_output.glob("*.csv"):
+            artifact.add(str(p))
 
-        # try:
-        #     COMET_EXPERIMENT.log_artifact(artifact)
-        # except comet_ml.exceptions.APIError as e:
-        #     logger.warning(f"Error while logging artifact {artifact} : {e}")
+        try:
+            COMET_EXPERIMENT.log_artifact(artifact)
+        except comet_ml.exceptions.APIError as e:
+            logger.warning(f"Error while logging artifact {artifact} : {e}")
 
 
     # =================================Preprocess Data==========================================================
@@ -125,16 +135,6 @@ def run_experiment(cfg: DictConfig) -> None:
     for features_to_include in [["distanceToGoal"], ["angleToGoal"], ["distanceToGoal", "angleToGoal"]]:
         logger.info(f"Training model {MODEL_CONFIG.model_type} with features : {features_to_include}")
 
-        if MODEL_CONFIG.model_type == "logistic_regression":
-            from sklearn.linear_model import LogisticRegression
-            classifier = LogisticRegression(
-                penalty=MODEL_CONFIG.penalty,
-                C=MODEL_CONFIG.C,
-                solver=MODEL_CONFIG.solver,
-            )
-        if MODEL_CONFIG.model_type == "xgboost":
-            pass
-        
         # for i, (train_index, test_index) in enumerate(CV_index_generator):
         #     print(f"Fold {i}:")
         X_train = data_preprocessor.X_train.iloc[train_index, :][features_to_include]
@@ -145,53 +145,147 @@ def run_experiment(cfg: DictConfig) -> None:
         y_test = data_preprocessor.y_test
 
         print(X_train.describe())
+
+        # Log TRAIN/VAL/TEST dataframes to comet_ml
+        COMET_EXPERIMENT.log_dataframe_profile(
+            X_train, "train_set_features", minimal=False)
+        
+        COMET_EXPERIMENT.log_dataframe_profile(
+            y_train, "train_set_label", minimal=False)
+
+        COMET_EXPERIMENT.log_dataframe_profile(
+            X_val, "val_set_features", minimal=False)
+        
+        COMET_EXPERIMENT.log_dataframe_profile(
+            y_val, "val_set_label", minimal=False)
+        
+        COMET_EXPERIMENT.log_dataframe_profile(
+            X_test, "test_set_features", minimal=False)
+        
+        COMET_EXPERIMENT.log_dataframe_profile(
+            y_test, "test_set_label", minimal=False)
+
+        from sklearn.utils.class_weight import compute_sample_weight
+
+        # balancing 'target' class weights
+        sample_weights = compute_sample_weight(
+            class_weight='balanced',
+            y=y_train)
+
+        if MODEL_CONFIG.model_type == "LogisticRegression":
+            from sklearn.linear_model import LogisticRegression
+            classifier = LogisticRegression(
+                penalty=MODEL_CONFIG.penalty,
+                C=MODEL_CONFIG.C,
+                solver=MODEL_CONFIG.solver,
+                verbose=MODEL_CONFIG.verbose,
+                class_weight=MODEL_CONFIG.class_weight,
+            )
+
+            classifier.fit(X_train, y_train, sample_weights)
+
+        if MODEL_CONFIG.model_type == "XGBoostClassifier":
+
+            import xgboost as xgb
+            classifier = xgb.XGBClassifier(
+                n_estimators=MODEL_CONFIG.n_estimators,
+                max_depth=MODEL_CONFIG.max_depth,
+                max_leaves=MODEL_CONFIG.max_leaves,
+                objective="multi:softmax",
+                num_class=len(DATA_PIPELINE_CONFIG.label),
+                reg_lambda=MODEL_CONFIG.reg_lambda,
+                learning_rate=MODEL_CONFIG.learning_rate,
+                min_child_weight = MODEL_CONFIG.min_child_weight,
+                subsample = MODEL_CONFIG.subsample,
+                colsample_bytree = MODEL_CONFIG.colsample_bytree,
+                eval_metric=['merror','mlogloss'],
+                seed=DATA_PIPELINE_CONFIG.seed,
+            )
+
+            classifier.fit(
+                X_train, 
+                y_train,
+                verbose=0, # set to 1 to see xgb training round intermediate results
+                sample_weight=sample_weights,
+                eval_set=[(X_train, y_train), (X_val, y_val)],
+            )
+
+            # preparing evaluation metric plots
+            results = classifier.evals_result()
+        
         import pdb; pdb.set_trace()
-        classifier.fit(X_train, y_train)
+        
         # evaluate accuracy on val set
         y_val_pred = classifier.predict(X_val)
-        val_accuracy = accuracy_score(y_val, y_val_pred)
-        logger.info(f"Accuracy on val set : {val_accuracy}")
 
         val_proba_preds = classifier.predict_proba(X_val)
 
-        # DONT ;ODIFY NAME OF THE KEYS IN THIS DICT ---> hard-coded IN OTHER FILES
+        print('\n------------------ Confusion Matrix -----------------\n')
+        cf_matrix_array = confusion_matrix(y_val, y_val_pred)
+        print(f'Confusion Matrix | {MODEL_TYPE} on {"+".join(features_to_include)}')
+        print(cf_matrix_array)
+
+        print(f'\n--------------- Classification Report  | {MODEL_TYPE} on {"+".join(features_to_include)}  ---------------\n')
+        print(classification_report(y_val, y_val_pred))
+
+        from utils.misc import assess_classifier_perf
+
+        # DONT MODIFY NAME OF THE KEYS IN THIS DICT ---> hard-coded IN OTHER FILES
         stats['+'.join(features_to_include)] = {
             'model': classifier,
             'val':{
-                'data' : X_val,
-                'accuracy' : val_accuracy,
+                'data' : (X_val, y_val),
                 'proba_preds' : val_proba_preds,
-                'preds' : y_val_pred 
+                'preds' : y_val_pred,
+                'performance' : assess_classifier_perf(y_val, y_val_pred)
             },
             'test':{
-                'accuracy' : accuracy_score(y_test, classifier.predict(X_test)),
+                'data' : (X_test, y_test),
                 'proba_preds' : classifier.predict_proba(X_test),
                 'preds' : classifier.predict(X_test),
+                'performance' : assess_classifier_perf(y_test, classifier.predict(X_test))
             }
         }
-    # _______________________ Training and evaluation finished
+        if MODEL_CONFIG.model_type == "XGBoostClassifier":
+            stats['+'.join(features_to_include)]['val']['results'] = results
 
+    # _______________________ Training and Validation finished
+
+    # Saving stats to disk and logging to comet_ml
     import pickle
     pickle.dump(stats, open(OUTPUT_DIR / "stats_training.pkl", "wb"))
+    COMET_EXPERIMENT.log_asset(str(OUTPUT_DIR / "stats_training.pkl"), "stats_training_with_model.pkl")
 
-    # _______________________ PLOTTING GRAPHS : ROC, RATIO-GOAL, CUMUL-GOAL, CALIBRATION CURVES
+    # PLOTTING GRAPHS : LOSSES, ROC, RATIO-GOAL, CUMUL-GOAL, CALIBRATION CURVES
 
     OUTPUT_DIR = OUTPUT_DIR / 'val'
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    PATH_GRAPHS = []
+
+    if MODEL_CONFIG.model_type == "XGBoostClassifier":
+        from utils.plot import plot_xgboost_losses
+        for k, results in stats.items():
+            PATH_GRAPHS.append(plot_xgboost_losses(results['val']['results'], OUTPUT_DIR, k))
     
-    from utils.plot import plot_perf_model
-    plot_perf_model(
-        ROC_curve = True,
-        ratio_goal_percentile_curve = True,
-        proportion_goal_percentile_curve = True,
-        calibration_curve = True,
-        stats = stats,
-        split = 'val',
-        y_true = y_val,
-        OUTPUT_DIR = OUTPUT_DIR,
-        model_type = MODEL_CONFIG.model_type,
+    from utils.plot import plotPerfModel
+    PATH_GRAPHS = plotPerfModel(
+        predictionsTest = {
+            f'{MODEL_TYPE} trained on {k}' : d['val']['proba_preds'] for k,d in stats.items()
+        },
+        yTest = y_val,
+        outputDir = OUTPUT_DIR,
+        rocCurve = True,
+        ratioGoalPercentileCurve = True,
+        proportionGoalPercentileCurve = True,
+        calibrationCurve = True,
     )
 
+    for p in PATH_GRAPHS:
+        try:
+            COMET_EXPERIMENT.log_asset(str(p), p.stem)
+        except comet_ml.exceptions.APIError as e:
+            logger.warning(f"Error while logging artifact {p} : {e}")
 
 if __name__ == "__main__":
     logger = init_logger("milestone2_main.log")

@@ -1,3 +1,18 @@
-model_type: xgboost
+model_type: XGBoostClassifier
 
-n_leaves : 5
+learning_rate : 0.01
+
+# Number of boosting rounds
+n_estimators : 1_000
+
+max_depth : 4
+
+max_leaves : 0
+
+reg_lambda : 1
+
+min_child_weight : 3
+
+subsample : 0.5
+
+colsample_bytree : 0.3
