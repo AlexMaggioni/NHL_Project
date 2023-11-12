@@ -12,61 +12,64 @@ from sklearn.base import BaseEstimator
 from sklearn.calibration import CalibrationDisplay
 from sklearn.metrics import RocCurveDisplay
 
-def unify_coordinates_referential(df_with_coordinates: pd.DataFrame, impute_rinkSide_bymean : bool) -> pd.DataFrame:
+def unify_coordinates_referential(
+    df_with_coordinates: pd.DataFrame,
+    impute_rinkSide_by_mean: bool = False
+) -> pd.DataFrame:
     """
-    Les coordonnees des plays dans le dataframe sont relatives a un sens de jeu (selon si le but est a gauche ou a droite).
-    Cette fonction permet d'unifier les coordonnees des plays relativement a un meme sens de jeu.
-
-    Pour chaque ligne de df_with_coordinates (une row = un play),
-    Les coordonnes doivent etre disponibles via "coordinateX" et "coordinateY"
-    et une colonne 'rinkSide' doit etre disponible (soit 'left', soit 'right').
-
+    Normalizes the coordinates of plays in a hockey game DataFrame, ensuring all coordinates are relative to the same direction.
+    Optionally imputes missing 'rinkSide' values based on the mean of 'coordinateX' for specific event types.
+ 
     Parameters
     ----------
     df_with_coordinates : pd.DataFrame
-        A dataframe containing the plays with their coordinates and a relative sense.
-
+        DataFrame containing plays with coordinates and rink side ('left', 'right', 'Shootout', or NaN).
+    impute_rinkSide_by_mean : bool, optional
+        If True, imputes missing 'rinkSide' values based on the mean of 'coordinateX' for specific event types.
+ 
     Returns
     -------
     pd.DataFrame
-        A dataframe containing the shots with their coordinates unified.
+        DataFrame with unified coordinates.
     """
-
-    # Ensure the dataframe contains necessary columns
-    required_columns = {"coordinateX", "coordinateY", "rinkSide"}
+ 
+    # Check for necessary columns
+    required_columns = {'coordinateX', 'coordinateY', 'rinkSide', 'gameId', 'byTeam', 'period', 'eventType'}
     if not required_columns.issubset(df_with_coordinates.columns):
-        raise RuntimeError(f"The dataframe must contain the columns: {required_columns}.")
-
-    # Copy the dataframe to avoid modifying the original one
-    df_with_coordinates = df_with_coordinates.copy()
-
-    # Handling NaN rinkSide
-    if impute_rinkSide_bymean:
-        nan_rink_sides = df_with_coordinates['rinkSide'].isna()
-        if nan_rink_sides.any():
-            # Check if 'period', 'byTeam', and 'gameId' columns exist
-            if not set(df_with_coordinates.columns).issuperset({"period", "byTeam", "gameId"}):
-                raise RuntimeError("The dataframe must contain 'period', 'byTeam', and 'gameId' columns to compute the rink side for NaN values.")
-
-            # Group by the necessary fields and compute the average of coordinateX
-            averages = df_with_coordinates.groupby(['period', 'byTeam', 'gameId'])['coordinateX'].transform('mean')
-
-            # Assign 'right' if the average is negative, otherwise 'left'
-            df_with_coordinates.loc[nan_rink_sides, 'rinkSide'] = ['right' if x < 0 else 'left' for x in averages[nan_rink_sides]]
-
-    # Main coordinate unification logic
-    right_rink_side = df_with_coordinates['rinkSide'] == 'right'
-    df_with_coordinates.loc[right_rink_side, 'coordinateX'] = -df_with_coordinates.loc[right_rink_side, 'coordinateX']
-    df_with_coordinates.loc[right_rink_side, 'coordinateY'] = -df_with_coordinates.loc[right_rink_side, 'coordinateY']
-    df_with_coordinates.loc[right_rink_side, 'rinkSide'] = 'left'
-
-    # Handling of plays with rinkSide == 'Shootout'
-    shootout_plays = (df_with_coordinates['rinkSide'] == 'Shootout') & (df_with_coordinates['coordinateX'] <= 0)
-    df_with_coordinates.loc[shootout_plays, 'coordinateX'] = -df_with_coordinates.loc[shootout_plays, 'coordinateX']
-    df_with_coordinates.loc[shootout_plays, 'coordinateY'] = -df_with_coordinates.loc[shootout_plays, 'coordinateY']
-    df_with_coordinates.loc[shootout_plays, 'rinkSide'] = 'left'
-
-    return df_with_coordinates
+        raise ValueError(f"The DataFrame must contain the columns: {required_columns}")
+ 
+    df = df_with_coordinates.copy()
+ 
+    # Impute missing rinkSide values
+    if impute_rinkSide_by_mean:
+        # Filter for specific event types and compute mean coordinateX
+        mean_coordinateX_df = df[df['eventType'].isin(['SHOT', 'GOAL', 'MISSED_SHOT', 'BLOCKED_SHOT'])]\
+                               .groupby(['gameId', 'byTeam', 'period'])['coordinateX']\
+                               .mean().reset_index()\
+                               .rename(columns={'coordinateX': 'mean_coordinateX'})
+ 
+        # Merge the original DataFrame with the mean coordinateX DataFrame
+        merged_df = df.merge(mean_coordinateX_df, on=['gameId', 'byTeam', 'period'], how='left')
+ 
+        # Use vectorized operation to update 'rinkSide'
+        merged_df['rinkSide'] = np.where(merged_df['rinkSide'].isna(),
+                                         np.where(merged_df['period'] == 5, 'Shootout',
+                                                  np.where(merged_df['mean_coordinateX'] < 0, 'right', 'left')),
+                                         merged_df['rinkSide'])
+ 
+        # Drop the supplementary column
+        df = merged_df.drop(columns=['mean_coordinateX'])
+ 
+    # Flipping coordinates for 'right' rinkSide
+    df.loc[df["rinkSide"] == "right", ["coordinateX", "coordinateY"]] *= -1
+    df.loc[df["period"] == 5, "rinkSide"] = "Shootout"
+    df.loc[df["rinkSide"] == "right", "rinkSide"] = "left"
+ 
+    # Flip coordinates for 'Shootout' rinkSide when coordinateX is negative
+    shootout_condition = (df["rinkSide"] == "Shootout") & (df["coordinateX"] < 0)
+    df.loc[shootout_condition, ["coordinateX", "coordinateY"]] *= -1
+ 
+    return df
 
 def plot_referential_differences(
         initial_coordinates_df: pd.DataFrame,
