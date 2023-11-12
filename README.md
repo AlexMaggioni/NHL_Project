@@ -69,3 +69,23 @@ python Milestone1/json_scrapper.py --path_to_csv clean_data.csv
 ## Notebooks pour les visualisation simples/avancées et débuggage des fichiers .json
 
 * The notebooks are ready off-the-shelf for execution, so just choose a kernel and run them.
+
+
+# Milestone 2 - How to run python scripts/notebooks
+
+## Before Running Anything
+
+* Initialiser CometML : `comet init`
+
+## Run experiment
+
+* Update the yaml files in conf/ with your desired parameters. Every yaml file is commented and so self-explanatory.
+
+* Run the experiment with the following command:
+
+```bash
+# Run experiment
+python Milestone2/main.py
+```
+
+## Run hyperparameter optimization

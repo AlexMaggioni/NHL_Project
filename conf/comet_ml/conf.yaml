@@ -1,0 +1,11 @@
+# Use this workspace when creating new experiments
+workspace : nhl-project
+
+# Use this project when creating new experiments
+project_name : nhl-model
+
+# Controls the level of detail displayed in the experiment summary. 
+# If set to 0, the summary is hidden, but the summary notification is still sent. 
+# If set to 2, the experiment summary shows everything that has been logged. 
+# Defaults to 1.
+display_summary_level : 2

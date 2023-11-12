@@ -221,7 +221,7 @@ def cli_args():
         Example : 
         export PYTHONPATH="$pwd"
         # télécharge chaque play de chaque match, que ce soit des playoffs ou de la saison régulière, pour chaque saison de 2016 à 2020
-        python Milestone1/json_scrapper.py --years $(seq -s ' ' 2016 2020)
+        python Milestone1/json_scrapper.py -p_csv very_big_file.csv --years $(seq -s ' ' 2016 2020)
         '''
     )
     parser.add_argument('-p_csv', '--path_to_csv', type=str, required=True, help='Path to the csv file. WILL BE CONCATENATED WITH the .env\'s DATA_FOLDER var. PUT THE COMMIT ID IN THE NAME !!!!!!!!!!!!!!!!!!!!')
@@ -236,7 +236,7 @@ if __name__ == "__main__":
     parent_dir = Path(__file__).parent.parent
     sys.path.insert(0, str(parent_dir))
 
-    from utils.utils  import init_logger, verify_dotenv_file
+    from utils.misc  import init_logger, verify_dotenv_file
 
     verify_dotenv_file(parent_dir)
     logger = init_logger("json_scrapper.log")

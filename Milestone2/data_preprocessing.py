@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import List
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import StratifiedKFold
@@ -6,7 +7,7 @@ from sklearn.model_selection import StratifiedKFold
 from rich.console import Console
 from rich.table import Table
 
-from utils.utils import unify_coordinates_referential, init_logger, verify_dotenv_file
+from utils.misc import unify_coordinates_referential, init_logger, verify_dotenv_file
 
 verify_dotenv_file(Path(__file__).parent.parent)
 logger = init_logger("feature_engineering.log")
@@ -20,6 +21,7 @@ class NHL_data_preprocessor:
         cross_validation_k_fold : int, 
         shuffle_before_splitting : bool, 
         seed : int,
+        label : List[str],
     ) -> None:
         
         self.df_train = df_train
@@ -27,19 +29,20 @@ class NHL_data_preprocessor:
         self.cross_validation_k_fold = cross_validation_k_fold
         self.shuffle_before_splitting = shuffle_before_splitting
         self.seed = seed
+        self.label = label
 
-        self.X_train = self.df_train.drop(columns=["is_goal"])
-        self.y_train = self.df_train["is_goal"]
+        self.X_train = self.df_train.drop(columns=label)
+        self.y_train = self.df_train[label]
 
-        self.X_test = self.df_test.drop(columns=["is_goal"])
-        self.y_test = self.df_test["is_goal"]
+        self.X_test = self.df_test.drop(columns=label)
+        self.y_test = self.df_test[label]
 
     def _print_splitting_stats(self, y_train=None, y_val=None):
         table = Table(title="Train/Val sets - Class Distribution", show_edge=True,show_lines=True,expand=True)
 
         table.add_column("Split type", justify="left", style="cyan", no_wrap=True)
-        table.add_column("NO_GOAL", style="magenta")
-        table.add_column('GOAL', style="magenta")
+        table.add_column("NOTHING", style="magenta")
+        [table.add_column(class_name, style="magenta") for class_name in self.label]
         table.add_row('Train', *y_train.value_counts().astype(str).to_list())
         table.add_row('Val', *y_val.value_counts().astype(str).to_list())
 

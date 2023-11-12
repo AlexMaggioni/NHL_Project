@@ -12,5 +12,8 @@ K_Fold : 5
 
 # SHUFFLE THE DATA BEFORE SPLITTING
 shuffle_before_splitting : true
- 
+
 seed : 42
+
+label : 
+  - isGoal

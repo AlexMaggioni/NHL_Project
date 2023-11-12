@@ -1,3 +1,4 @@
+import comet_ml
 import datetime
 import hydra
 import os
@@ -7,10 +8,12 @@ from omegaconf import DictConfig
 import pandas as pd
 from rich import print
 from sklearn.metrics import accuracy_score
-from data_preprocessing import NHL_data_preprocessor
+from comet_ml import Artifact, Experiment
 
+from data_preprocessing import NHL_data_preprocessor
 from feature_engineering import NHLFeatureEngineering
-from utils.utils import init_logger, verify_dotenv_file
+from utils.comet_ml import init_experiment
+from utils.misc import init_logger, verify_dotenv_file
 
 verify_dotenv_file(Path(__file__).parent.parent)
 
@@ -24,44 +27,82 @@ def run_experiment(cfg: DictConfig) -> None:
     DATA_PIPELINE_CONFIG = cfg.data_pipeline
     print(dict(cfg))
 
-    # =================================Prepare/Engineer Data==========================================================
-    
-    RAW_DATA_PATH = Path(os.getenv("DATA_FOLDER"))/ cfg.raw_train_data_path
-    logger.info(f"Loading raw data from {RAW_DATA_PATH}")
-    RAW_DATA_DF : pd.DataFrame = pd.read_csv(RAW_DATA_PATH)
-
-    data_engineered = NHLFeatureEngineering(
-        df = RAW_DATA_DF,
-        distanceToGoal= DATA_PIPELINE_CONFIG.distanceToGoal,
-        angleToGoal= DATA_PIPELINE_CONFIG.angleToGoal,
-        isGoal= DATA_PIPELINE_CONFIG.isGoal,
-        emptyNet= DATA_PIPELINE_CONFIG.emptyNet,
-        verbose= DATA_PIPELINE_CONFIG.verbose,
-        imputeRinkSide= DATA_PIPELINE_CONFIG.imputeRinkSide,
-        periodTimeSeconds= DATA_PIPELINE_CONFIG.periodTimeSeconds,
-        lastEvent= DATA_PIPELINE_CONFIG.lastEvent,
-        lastCoordinates= DATA_PIPELINE_CONFIG.lastCoordinates,
-        timeElapsed= DATA_PIPELINE_CONFIG.timeElapsed,
-        distanceFromLastEvent= DATA_PIPELINE_CONFIG.distanceFromLastEvent,
-        rebound= DATA_PIPELINE_CONFIG.rebound,
-        changeAngle= DATA_PIPELINE_CONFIG.changeAngle,
-        speed= DATA_PIPELINE_CONFIG.speed,
-        computePowerPlayFeatures= DATA_PIPELINE_CONFIG.computePowerPlayFeatures,
+    COMET_EXPERIMENT = init_experiment(
+        project_name=cfg.comet_ml.project_name,
+        workspace=cfg.comet_ml.workspace,
+        display_summary_level=cfg.comet_ml.display_summary_level,
     )
 
-    # =================================Preprocess Data==========================================================
-    df_processed = data_engineered.dfUnify
+    # =================================Prepare/Engineer Data==========================================================
+    
 
+    if cfg.load_engineered_data_from:
+        logger.info(f" SKIPPING FEATURE ENGINEERING COMPUTATION : Loading feature-engineered data from {cfg.load_engineered_data_from}")
+        df_processed = pd.read_csv(Path(os.getenv("DATA_FOLDER"))/ cfg.raw_train_data_path)
+
+    else:
+        logger.info(f"Starting the data Feature-engineering")
+        
+        RAW_DATA_PATH = Path(os.getenv("DATA_FOLDER"))/ cfg.raw_train_data_path
+        
+        data_engineered = NHLFeatureEngineering(
+            RAW_DATA_PATH = RAW_DATA_PATH ,
+            distanceToGoal= DATA_PIPELINE_CONFIG.distanceToGoal,
+            angleToGoal= DATA_PIPELINE_CONFIG.angleToGoal,
+            isGoal= DATA_PIPELINE_CONFIG.isGoal,
+            emptyNet= DATA_PIPELINE_CONFIG.emptyNet,
+            verbose= DATA_PIPELINE_CONFIG.verbose,
+            imputeRinkSide= DATA_PIPELINE_CONFIG.imputeRinkSide,
+            periodTimeSeconds= DATA_PIPELINE_CONFIG.periodTimeSeconds,
+            lastEvent= DATA_PIPELINE_CONFIG.lastEvent,
+            lastCoordinates= DATA_PIPELINE_CONFIG.lastCoordinates,
+            timeElapsed= DATA_PIPELINE_CONFIG.timeElapsed,
+            distanceFromLastEvent= DATA_PIPELINE_CONFIG.distanceFromLastEvent,
+            rebound= DATA_PIPELINE_CONFIG.rebound,
+            changeAngle= DATA_PIPELINE_CONFIG.changeAngle,
+            speed= DATA_PIPELINE_CONFIG.speed,
+            computePowerPlayFeatures= DATA_PIPELINE_CONFIG.computePowerPlayFeatures,
+            version= cfg.feature_engineering_version,
+        )
+
+        df_processed = data_engineered.dfUnify
+        
+        artifact = Artifact(
+            name=f"FeatEng_df_{data_engineered.version}__{data_engineered.RAW_DATA_PATH.stem}__{data_engineered.uniq_id}", 
+            artifact_type="FeatEng_df",
+            version=str(data_engineered.version)+'.0.0',
+            aliases=[f"FE_df_{data_engineered.version}__{data_engineered.RAW_DATA_PATH.stem}__{data_engineered.uniq_id}"],
+            metadata={
+                'local_path' : str(data_engineered.path_save_output),
+                'source_raw_data_path' : str(data_engineered.RAW_DATA_PATH),
+                'version' : data_engineered.version,
+                'uniq_id' : data_engineered.uniq_id,
+                'sqllite_file_path' : data_engineered.sqlite_file
+            },
+            version_tags=None
+        )
+
+        # for p in data_engineered.path_save_output.glob("*.csv"):
+        #     artifact.add(str(p))
+
+        # try:
+        #     COMET_EXPERIMENT.log_artifact(artifact)
+        # except comet_ml.exceptions.APIError as e:
+        #     logger.warning(f"Error while logging artifact {artifact} : {e}")
+
+
+    # =================================Preprocess Data==========================================================
     mask_criteria = df_processed["season"] == 2020
     TRAIN_DF = df_processed[~mask_criteria]
     TEST_DF = df_processed[mask_criteria]
-
+    
     data_preprocessor = NHL_data_preprocessor(
         df_train = TRAIN_DF,
         df_test = TEST_DF,
         cross_validation_k_fold = DATA_PIPELINE_CONFIG.K_Fold,
         shuffle_before_splitting = DATA_PIPELINE_CONFIG.shuffle_before_splitting,
         seed = DATA_PIPELINE_CONFIG.seed,
+        label = DATA_PIPELINE_CONFIG.label,
     )
     
     CV_index_generator  = data_preprocessor._split_data()
@@ -81,16 +122,11 @@ def run_experiment(cfg: DictConfig) -> None:
     stats = {}
 
     train_index, val_index = CV_index_generator.__next__()
-    for features_to_include in [["distance_to_goal"], ["angle_to_goal"], ["distance_to_goal", "angle_to_goal"]]:
+    for features_to_include in [["distanceToGoal"], ["angleToGoal"], ["distanceToGoal", "angleToGoal"]]:
         logger.info(f"Training model {MODEL_CONFIG.model_type} with features : {features_to_include}")
 
         if MODEL_CONFIG.model_type == "logistic_regression":
             from sklearn.linear_model import LogisticRegression
-            # classifier = LogisticRegression(
-            #     penalty=MODEL_CONFIG.penalty,
-            #     C=MODEL_CONFIG.C,
-            #     solver=MODEL_CONFIG.solver,
-            # )
             classifier = LogisticRegression(
                 penalty=MODEL_CONFIG.penalty,
                 C=MODEL_CONFIG.C,
@@ -109,7 +145,7 @@ def run_experiment(cfg: DictConfig) -> None:
         y_test = data_preprocessor.y_test
 
         print(X_train.describe())
-
+        import pdb; pdb.set_trace()
         classifier.fit(X_train, y_train)
         # evaluate accuracy on val set
         y_val_pred = classifier.predict(X_val)

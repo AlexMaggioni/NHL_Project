@@ -1,7 +1,9 @@
+from copy import deepcopy
+import os
 from pathlib import Path
 import pandas as pd
 import numpy as np
-from utils.utils  import unify_coordinates_referential, init_logger, verify_dotenv_file, GOAL_POSITION
+from utils.misc  import unify_coordinates_referential, init_logger, verify_dotenv_file, GOAL_POSITION
 from datetime import timedelta
 
 verify_dotenv_file(Path(__file__).parent.parent)
@@ -11,7 +13,7 @@ class NHLFeatureEngineering:
     
     def __init__(
             self, 
-            df: pd.DataFrame,
+            RAW_DATA_PATH: Path,
             distanceToGoal: bool,
             angleToGoal: bool,
             isGoal: bool,
@@ -27,9 +29,12 @@ class NHLFeatureEngineering:
             changeAngle: bool,
             speed: bool,
             computePowerPlayFeatures: bool,
+            version : int
         ):
         
-        self.df = df
+        self.RAW_DATA_PATH = RAW_DATA_PATH
+        logger.info(f"Loading raw data from {self.RAW_DATA_PATH}")
+        self.df = pd.read_csv(RAW_DATA_PATH)
         self.dfUnify = pd.DataFrame()
         self.verbose = verbose
         self.imputeRinkSide = imputeRinkSide
@@ -127,6 +132,78 @@ class NHLFeatureEngineering:
             self.dfUnify['awaySkaters'] = self.df.loc[self.dfUnify.index, 'awaySkaters']
 
         self.dfUnify = self.dfUnify.reset_index(drop=True)
+
+
+        self.version = version
+        self.sqlite_file = Path(os.getenv("DATA_FOLDER")) / 'feature_engineering_output' / ('v'+str(self.version)) / f'info_{self.version}.db'
+        self._save_processed_df()
+
+    def _save_processed_df(self):
+        '''
+        Save the processed dataframes in a csv file.
+        if same kind (here is the difficulty) of dataframe 
+        '''
+
+        self.uniq_id = self._generate_unique_id() 
+        ROOT_PATH = self.sqlite_file.parent / self.RAW_DATA_PATH.stem / self.uniq_id
+        ROOT_PATH.mkdir(parents=True, exist_ok=True)
+        self.path_save_output = ROOT_PATH
+        already_existing_file_path = self.verify_ft_eng_df_exists()
+
+        if already_existing_file_path:
+            logger.info(f"SKIPPING SAVING OF NEWLY FEATURE-ENGINEERED DATA : Found similar file at {self.path_save_output}, not saving again.")
+        
+        else:
+            logger.info(f"Saving the feature-engineered dataframes at {ROOT_PATH}")
+            self.dfUnify.to_csv(ROOT_PATH / f'df_Unify.csv', index=False)
+            self.dfUnify.to_csv(ROOT_PATH / f'df.csv', index=False)
+            self._update_sqlite_db()
+
+    def verify_ft_eng_df_exists(self):
+        content_dir = list(self.path_save_output.iterdir())
+        return (self.path_save_output / 'df_Unify.csv') in content_dir \
+            and (self.path_save_output / 'df.csv') in content_dir
+
+    def _update_sqlite_db(self):
+        '''
+        Update the sqlite database with the newly processed dataframe.
+        '''
+        from sqlite_utils import Database
+        
+        db = Database(self.sqlite_file)
+
+        columns_table = {"id": int}
+        for k in self.attr_for_reproducibility.keys():
+            if k=="GOAL_POSITION":
+                columns_table[k] = str
+            else: 
+                columns_table[k] = bool
+
+        sqlite_table_to_update ="INFO_SAVED_DF" 
+        db[sqlite_table_to_update ].create(columns_table, pk="id", if_not_exists=True, ignore=True)
+
+        self.attr_for_reproducibility['id'] = self.path_save_output.name
+        self.attr_for_reproducibility['GOAL_POSITION'] = '_'.join(map(str, self.GOAL_POSITION))
+        
+        db['info'].insert(self.attr_for_reproducibility, pk="id", alter=True, replace=True)
+        logger.info(f"""SUCCESSFULLY Updated the sqlite database with the newly processed dataframe at 
+                    {self.sqlite_file} 
+                    adding row with id {self.attr_for_reproducibility['id']}
+                    in table {sqlite_table_to_update}""")
+
+        return self.attr_for_reproducibility
+
+    def _generate_unique_id(self) -> str:
+        '''
+        Generate a unique id encoding important attributes that caracterizes differences
+        between two instances of NHLFeatureEngineering.
+        '''
+        attributes_dict = deepcopy(vars(self))
+        for key_to_pop in ['df', 'dfUnify', 'version', 'verbose', 'RAW_DATA_PATH','sqlite_file']:
+            attributes_dict.pop(key_to_pop, None)
+        self.attr_for_reproducibility = attributes_dict
+        attributes_dict['GOAL_POSITION'] = np.linalg.norm(attributes_dict['GOAL_POSITION']).astype(int)
+        return str(sum(attributes_dict.values()))
 
     def _printNaStatsBeforeUnifying(self):
 
