@@ -187,7 +187,7 @@ def get_dotenv_file_to_load():
 def verify_dotenv_file(position_of_execution : Path):
     file_dot_env_to_load = get_dotenv_file_to_load()
     from rich import print
-    print(f"Loading {file_dot_env_to_load} file from {position_of_execution}")
+    # print(f"Loading {file_dot_env_to_load} file from {position_of_execution}")
     if load_dotenv(position_of_execution / file_dot_env_to_load, verbose=True):
         return True
     else:

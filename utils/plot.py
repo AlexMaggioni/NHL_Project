@@ -187,7 +187,7 @@ def plotPerfModel(
     rocCurve: bool,
     ratioGoalPercentileCurve: bool,
     proportionGoalPercentileCurve: bool,
-    calibrationCurve: bool
+    calibrationCurve: bool,
 ) -> List[Path]:
     outputDir.mkdir(parents=True, exist_ok=True)
 
@@ -248,7 +248,7 @@ def plot_XGBOOST_losses(results, OUTPUT_DIR, title) -> List[Path]:
     ax.plot(x_axis, results['validation_1']['mlogloss'], label='Val')
     ax.legend()
     plt.ylabel('mlogloss')
-    plt.title('{title} mlogloss')
+    plt.title(f'{title} mlogloss')
     plt.savefig(OUTPUT_DIR / f'{title}_mlogloss.png')
     res.append(OUTPUT_DIR / f'{title}_mlogloss.png')
 
@@ -258,7 +258,7 @@ def plot_XGBOOST_losses(results, OUTPUT_DIR, title) -> List[Path]:
     ax.plot(x_axis, results['validation_1']['merror'], label='Val')
     ax.legend()
     plt.ylabel('merror')
-    plt.title('{title} merror')
+    plt.title(f'{title} merror')
     plt.savefig(OUTPUT_DIR / f'{title}_merror.png')
     res.append(OUTPUT_DIR / f'{title}_merror.png')
 
@@ -273,6 +273,8 @@ def plot_XGBOOST_feat_importance(
 ):
     PATH_GRAPHS = []
 
+    key = '+'.join(X_train_samples.columns)
+
     #feature importance plot
     importances = classifier._Booster.get_score(importance_type=classifier.importance_type)
     print(importances)
@@ -283,9 +285,11 @@ def plot_XGBOOST_feat_importance(
 
     logger.info(f"Plotting XGBoost feature importance at {OUTPUT_DIR}")
     ax = xgboost.plot_importance(classifier)
-    ax.figure.savefig(str(OUTPUT_DIR / 'feature_importance.png'))
+    output_feat_imp = OUTPUT_DIR / f'{key}_feature_importance.png'
+    ax.figure.savefig(str(output_feat_imp))
+    PATH_GRAPHS.append(output_feat_imp)
 
-    COMET_EXPERIMENT.log_image(str(OUTPUT_DIR / 'feature_importance.png'))
+    COMET_EXPERIMENT.log_image(str(output_feat_imp))
 
     import shap
         
@@ -312,7 +316,9 @@ def plot_XGBOOST_feat_importance(
     feature_names = X_train_samples.columns
     # log Summary plot
     shap.summary_plot(shap_values, feature_names, show=False)
-    plt.savefig(str(OUTPUT_DIR / 'summary_plot.png'))
-    COMET_EXPERIMENT.log_image(str(OUTPUT_DIR / 'summary_plot.png'))
+    new_var = OUTPUT_DIR / f'{key}_summary_plot.png'
+    plt.savefig(str( new_var))
+    PATH_GRAPHS.append(new_var)
+    COMET_EXPERIMENT.log_image(str(new_var))
 
     return PATH_GRAPHS

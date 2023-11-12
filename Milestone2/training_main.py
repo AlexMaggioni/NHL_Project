@@ -7,6 +7,7 @@ from pathlib import Path
 import loguru
 from matplotlib import pyplot as plt
 from omegaconf import DictConfig
+import pandas as pd
 from rich import print
 from comet_ml import Artifact, Experiment
 from utils.comet_ml import log_data_splits_to_comet
@@ -76,12 +77,30 @@ def run_experiment(cfg: DictConfig, logger) -> None:
     for features_to_include in [["distanceToGoal"], ["angleToGoal"], ["distanceToGoal", "angleToGoal"]]:
         logger.info(f"Training model {MODEL_CONFIG.model_type} with features : {features_to_include}")
 
+        KEY_DICT_STAT = '+'.join(features_to_include)
+
         X_train = DATA_PREPROCESSOR_OBJ.X_train.iloc[train_index, :][features_to_include]
         y_train = DATA_PREPROCESSOR_OBJ.y_train.iloc[train_index]
         X_val = DATA_PREPROCESSOR_OBJ.X_train.iloc[val_index, :][features_to_include]
         y_val = DATA_PREPROCESSOR_OBJ.y_train.iloc[val_index]
         X_test = DATA_PREPROCESSOR_OBJ.X_test[features_to_include]
         y_test = DATA_PREPROCESSOR_OBJ.y_test
+
+        
+        if MODEL_CONFIG.model_type == "LogisticRegression":
+        # LogisticRegression does not support NA values in data
+        # impute them before training with median value
+            logger.info("Imputing missing values with median")
+            from sklearn.impute import SimpleImputer
+            imputer = SimpleImputer(strategy='median')
+            imputer.fit(X_train)
+            X_train = imputer.transform(X_train)
+            X_val = imputer.transform(X_val)
+            X_test = imputer.transform(X_test)
+            
+            X_train = pd.DataFrame(X_train, columns=features_to_include)
+            X_val = pd.DataFrame(X_val, columns=features_to_include)
+            X_test = pd.DataFrame(X_test, columns=features_to_include)
 
         print(X_train.describe())
 
@@ -94,6 +113,7 @@ def run_experiment(cfg: DictConfig, logger) -> None:
             y_val = y_val,
             X_test = X_test,
             y_test = y_test,
+            title = '+'.join(features_to_include)
         )
 
         logger.info("Training model")
@@ -119,6 +139,12 @@ def run_experiment(cfg: DictConfig, logger) -> None:
             title_model=f'{MODEL_TYPE} trained on {"+".join(features_to_include)}',
         )
 
+        COMET_EXPERIMENT.log_confusion_matrix(
+            labels=['NO_GOAL','GOAL'],
+            matrix=VAL_METRICS['conf_matrix'],
+            file_name=f"confusion_matrix_val_set_{KEY_DICT_STAT}.png",
+        )
+
         logger.info("Assessing model performance on test split")
         TEST_METRICS = assess_classifier_perf(
             y=y_test,
@@ -126,7 +152,12 @@ def run_experiment(cfg: DictConfig, logger) -> None:
             title_model=f'{MODEL_TYPE} trained on {"+".join(features_to_include)}',
         )
 
-        KEY_DICT_STAT = '+'.join(features_to_include)
+        COMET_EXPERIMENT.log_confusion_matrix(
+            labels=['NO_GOAL','GOAL'],
+            matrix=TEST_METRICS['conf_matrix'],
+            file_name=f"confusion_matrix_test_set_{KEY_DICT_STAT}.png",
+        )
+        
 
         # DONT MODIFY NAME OF THE KEYS IN THIS DICT ---> hard-coded IN OTHER FILES
         STATS_EXPERIMENT[KEY_DICT_STAT] = {
@@ -182,11 +213,10 @@ def run_experiment(cfg: DictConfig, logger) -> None:
     # PLOTTING GRAPHS : LOSSES, ROC, RATIO-GOAL, CUMUL-GOAL, CALIBRATION CURVES
     OUTPUT_DIR = OUTPUT_DIR / 'val'
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    PATH_GRAPHS = []
     
     from utils.plot import plotPerfModel
     logger.info(f"Plotting prob-oriented performance curves at {OUTPUT_DIR} on val set")
-    PATH_GRAPHS.extend(plotPerfModel(
+    PATH_GRAPHS_TO_LOG_TO_COMET.extend(plotPerfModel(
         predictionsTest = {
             f'{MODEL_TYPE} trained on {k}' : d['val']['proba_preds'] for k,d in STATS_EXPERIMENT.items()
         },
@@ -198,7 +228,10 @@ def run_experiment(cfg: DictConfig, logger) -> None:
         calibrationCurve = True,
     ))
 
-    for p in PATH_GRAPHS:
+    logger.info('List of plots that will be logged to comet_ml')
+    print(PATH_GRAPHS_TO_LOG_TO_COMET)
+
+    for p in PATH_GRAPHS_TO_LOG_TO_COMET:
         try:
             COMET_EXPERIMENT.log_asset(str(p), p.stem)
         except comet_ml.exceptions.APIError as e:

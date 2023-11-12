@@ -9,7 +9,7 @@ def create_model(
 ):
     if MODEL_CONFIG.model_type == "LogisticRegression":
         from sklearn.linear_model import LogisticRegression
-        logger.info(f"Creating {MODEL_CONFIG.model_type} with solver : {objective}")
+        logger.info(f"Creating {MODEL_CONFIG.model_type}")
         classifier = LogisticRegression(
             penalty=MODEL_CONFIG.penalty,
             C=MODEL_CONFIG.C,
@@ -64,6 +64,8 @@ def train_classifier_model(
         y=y_train
     )
 
+    
+
     kwargs_fit = {
         'X' : X_train,
         'y' : y_train,
@@ -80,34 +82,6 @@ def train_classifier_model(
         # callbacks = [time_callback]
         kwargs_fit['verbose'] = 0
         kwargs_fit['eval_set'] = [(X_train, y_train), (X_val, y_val)]
-
-    if MODEL_CONFIG.model_type == "LogisticRegression":
-        # LogisticRegression does not support NA values in data
-        # So we need to impute them
-        from sklearn.impute import SimpleImputer
-        from sklearn.pipeline import Pipeline
-        from sklearn.preprocessing import StandardScaler
-        from sklearn.compose import ColumnTransformer
-        from sklearn.preprocessing import OneHotEncoder
-
-        numeric_transformer = Pipeline(steps=[
-            ('imputer', SimpleImputer(strategy='median')),
-            ('scaler', StandardScaler())])
-
-        categorical_transformer = Pipeline(steps=[
-            ('imputer', SimpleImputer(strategy='constant', fill_value='missing')),
-            ('onehot', OneHotEncoder(handle_unknown='ignore'))])
-
-        numeric_features = X_train.select_dtypes(include=['int64', 'float64']).columns
-        categorical_features = X_train.select_dtypes(include=['object']).columns
-
-        preprocessor = ColumnTransformer(
-            transformers=[
-                ('num', numeric_transformer, numeric_features),
-                ('cat', categorical_transformer, categorical_features)])
-
-        CLS_MODEL = Pipeline(steps=[('preprocessor', preprocessor),
-                                    ('classifier', CLS_MODEL)])
 
     start_time = time.time()
     CLS_MODEL.fit(**kwargs_fit)
