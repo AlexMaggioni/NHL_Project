@@ -61,6 +61,17 @@ python Milestone1/nhl_rest_api_fetcher.py --years $(seq -s ' ' 2016 2020)
 
 ## Nettoyer les données (.json to pandas dataframe)
 
+*<u>IMPORTANT NOTE:</u>* For sake of data reproducibility/lineage, filename of the newly generated .csv file MUST contain a *git commit id* in which `json_scrapper.py` was modified. 
+
+To retreive such, do:
+```bash
+git log -1 --pretty=format:"%h" Milestone1/json_scrapper.py
+
+# ouput: 1a2b3c4d
+```
+
+Then, you can run the following command:
+
 ```bash
 # Scrappe tous les jsons file pour créer un fichier csv; concatenation of the .env\'s DATA_FOLDER var + arg given
 python Milestone1/json_scrapper.py --path_to_csv clean_data.csv
@@ -89,3 +100,7 @@ python Milestone2/main.py
 ```
 
 ## Run hyperparameter optimization
+
+
+# DATA VERSIONING 
+

@@ -1,4 +1,4 @@
-from typing import Generator, Tuple
+from typing import Generator, List, Tuple
 import os
 from pathlib import Path
 from omegaconf import DictConfig
@@ -6,6 +6,7 @@ import pandas as pd
 from rich import print
 
 from comet_ml import Artifact, Experiment
+from sklearn.model_selection import StratifiedKFold
 
 from Milestone2.data_preprocessing import NHL_data_preprocessor
 from Milestone2.feature_engineering import NHLFeatureEngineering
@@ -17,7 +18,7 @@ def create_engineered_data_object(
         version : str,
 ) -> NHLFeatureEngineering:
     
-    GOAL_POSITION = [DATA_PIPELINE_CONFIG.GOAL_POSITION.x, DATA_PIPELINE_CONFIG.GOAL_POSITION.y]
+    GOAL_POSITION = [DATA_PIPELINE_CONFIG.GOAL_POSITION_X, DATA_PIPELINE_CONFIG.GOAL_POSITION_Y]
     
     data_engineered = NHLFeatureEngineering(
                 RAW_DATA_PATH = RAW_DATA_PATH ,
@@ -54,11 +55,22 @@ def create_preprocessor_data_object(
         shuffle_before_splitting = DATA_PIPELINE_CONFIG.shuffle_before_splitting,
         seed = DATA_PIPELINE_CONFIG.seed,
         label = DATA_PIPELINE_CONFIG.label,
+        columns_to_drop = DATA_PIPELINE_CONFIG.columns_to_drop,
+        dropNaCoordinates = DATA_PIPELINE_CONFIG.dropNaCoordinates,
+        imputeNaSpeed = DATA_PIPELINE_CONFIG.imputeNaSpeed,
+        encodeGameDate = DATA_PIPELINE_CONFIG.encodeGameDate,
+        encodeGameType = DATA_PIPELINE_CONFIG.encodeGameType,
+        encodeShooterId = DATA_PIPELINE_CONFIG.encodeShooterId,
+        encodeGoalieId = DATA_PIPELINE_CONFIG.encodeGoalieId,
+        encodeByTeam = DATA_PIPELINE_CONFIG.encodeByTeam,
+        encodeShotType = DATA_PIPELINE_CONFIG.encodeShotType,
+        encodeStrength = DATA_PIPELINE_CONFIG.encodeStrength,
+        encodeLastEventType = DATA_PIPELINE_CONFIG.encodeLastEventType,
     )
     
     return data_preprocessor
 
-def init_data_for_experiment(
+def init_data_for_isgoal_classification_experiment(
         RAW_DATA_PATH : Path,
         DATA_PIPELINE_CONFIG : DictConfig,
         version : str,
@@ -67,8 +79,8 @@ def init_data_for_experiment(
         load_engineered_data_from : str,
         logger,
 ) -> Tuple[NHL_data_preprocessor, NHLFeatureEngineering]:
-    
 
+    # =================================Data engineering==========================================================
     if load_engineered_data_from:
         PATH_RESUME_DATA_ENGINEERED = Path(os.getenv("DATA_FOLDER"))/ load_engineered_data_from
         logger.info(f" SKIPPING FEATURE ENGINEERING COMPUTATION : Loading feature-engineered data from {PATH_RESUME_DATA_ENGINEERED}")
@@ -80,22 +92,16 @@ def init_data_for_experiment(
             RAW_DATA_PATH = RAW_DATA_PATH,
             DATA_PIPELINE_CONFIG = DATA_PIPELINE_CONFIG,
             version = version,
-            comet_experiment_object = comet_experiment_object,
         )
         
-        log_feature_eng_obj(
-            COMET_EXPERIMENT = comet_experiment_object,
-            DATA_ENGINEERED_OBJ = DATA_ENGINEERED_OBJ,
-        )
+        log_feature_eng_obj(DATA_ENGINEERED_OBJ)
 
         df_processed = DATA_ENGINEERED_OBJ.dfUnify
 
+    # =================================Train/Test splitting==========================================================
     TEST_DF, TRAIN_DF = train_test_splitting(TRAIN_TEST_PREDICATE_SPLITTING, df_processed)
 
-    logger.info("!!!!!!!!!!!!!!!!!!!!!!!!!!!! TAKE OUT THOSE TWO LINES JUST TO MAKE TEST RUN FASTER !!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    TEST_DF = TEST_DF.sample(frac=0.5, random_state=DATA_PIPELINE_CONFIG.seed)
-    TRAIN_DF = TRAIN_DF.sample(frac=0.5, random_state=DATA_PIPELINE_CONFIG.seed)
-
+    # =================================DATA PREPROCESSING==========================================================
     DATA_PREPROCESSOR_OBJ = create_preprocessor_data_object(
         TRAIN_DF = TRAIN_DF,
         TEST_DF = TEST_DF,

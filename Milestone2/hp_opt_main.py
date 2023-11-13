@@ -4,123 +4,143 @@ import datetime
 import hydra
 import os
 from pathlib import Path
+import loguru
 from matplotlib import pyplot as plt
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 import pandas as pd
 from rich import print
-from sklearn.metrics import (
-            confusion_matrix,
-            classification_report,
-            )
-from sklearn.metrics import (
-            balanced_accuracy_score,
-            accuracy_score,
-            precision_score,
-            recall_score,
-            f1_score,
-            )
 from comet_ml import Artifact, Experiment
-import ydata_profiling
+from sklearn.metrics import roc_auc_score
+from utils.comet_ml import log_data_splits_to_comet
+from utils.metrics import assess_classifier_perf
 
-from data_preprocessing import NHL_data_preprocessor
-from feature_engineering import NHLFeatureEngineering
 from utils.misc import init_logger, verify_dotenv_file
+from utils.model import train_classifier_model
 
 verify_dotenv_file(Path(__file__).parent.parent)
 
 
-@hydra.main(
-    version_base=None, config_path=os.getenv("YAML_CONF_DIR"), config_name="main_config"
-)
-def run_hp_optimization_search(cfg: DictConfig) -> None:
-    global logger
+def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
+
     MODEL_CONFIG = cfg.model
     DATA_PIPELINE_CONFIG = cfg.data_pipeline
+
     print(dict(cfg))
 
     COMET_EXPERIMENT = Experiment(
-        api_key=os.getenv("COMET_API_KEY"),
-        project_name=f'{MODEL_CONFIG.model_type}',
+        project_name=f'{MODEL_CONFIG.model_type}_single_training',
         workspace='nhl-project',
     )
 
     COMET_EXPERIMENT.log_parameters(dict(cfg), prefix='HYDRA_')
 
-    # =================================Prepare/Engineer Data==========================================================
+    # =================================Prepare Data==========================================================
     
+    PATH_RAW_CSV = Path(os.getenv("DATA_FOLDER"))/ cfg.data_pipeline.raw_train_data_path
+    FEATURE_ENG_VERSION = cfg.data_pipeline.feature_engineering_version
+    TRAIN_TEST_SPLIT_CONDITION = cfg.data_pipeline.predicate_train_test_split
+    LOAD_FROM_EXISTING_FEATURE_ENG_DATA = cfg.data_pipeline.load_engineered_data_from
 
-    if cfg.load_engineered_data_from:
-        logger.info(f" SKIPPING FEATURE ENGINEERING COMPUTATION : Loading feature-engineered data from {cfg.load_engineered_data_from}")
-        df_processed = pd.read_csv(Path(os.getenv("DATA_FOLDER"))/ cfg.load_engineered_data_from)
+    from utils.data import init_data_for_experiment
 
-    else:
-        logger.info(f"Starting the data Feature-engineering")
-        
-        RAW_DATA_PATH = Path(os.getenv("DATA_FOLDER"))/ cfg.raw_train_data_path
-        
-        data_engineered = NHLFeatureEngineering(
-            RAW_DATA_PATH = RAW_DATA_PATH ,
-            distanceToGoal= DATA_PIPELINE_CONFIG.distanceToGoal,
-            angleToGoal= DATA_PIPELINE_CONFIG.angleToGoal,
-            isGoal= DATA_PIPELINE_CONFIG.isGoal,
-            emptyNet= DATA_PIPELINE_CONFIG.emptyNet,
-            verbose= DATA_PIPELINE_CONFIG.verbose,
-            imputeRinkSide= DATA_PIPELINE_CONFIG.imputeRinkSide,
-            periodTimeSeconds= DATA_PIPELINE_CONFIG.periodTimeSeconds,
-            lastEvent= DATA_PIPELINE_CONFIG.lastEvent,
-            lastCoordinates= DATA_PIPELINE_CONFIG.lastCoordinates,
-            timeElapsed= DATA_PIPELINE_CONFIG.timeElapsed,
-            distanceFromLastEvent= DATA_PIPELINE_CONFIG.distanceFromLastEvent,
-            rebound= DATA_PIPELINE_CONFIG.rebound,
-            changeAngle= DATA_PIPELINE_CONFIG.changeAngle,
-            speed= DATA_PIPELINE_CONFIG.speed,
-            computePowerPlayFeatures= DATA_PIPELINE_CONFIG.computePowerPlayFeatures,
-            version= cfg.feature_engineering_version,
-        )
-
-        df_processed = data_engineered.dfUnify
-        
-        artifact = Artifact(
-            name=f"FeatEng_df_{data_engineered.version}__{data_engineered.RAW_DATA_PATH.stem}__{data_engineered.uniq_id}", 
-            artifact_type="FeatEng_df",
-            version=str(data_engineered.version)+'.0.0',
-            aliases=[f"FE_df_{data_engineered.version}__{data_engineered.RAW_DATA_PATH.stem}__{data_engineered.uniq_id}"],
-            metadata={
-                'local_path' : str(data_engineered.path_save_output),
-                'source_raw_data_path' : str(data_engineered.RAW_DATA_PATH),
-                'version' : data_engineered.version,
-                'uniq_id' : data_engineered.uniq_id,
-                'sqllite_file_path' : data_engineered.sqlite_file
-            },
-            version_tags=None
-        )
-
-        for p in data_engineered.path_save_output.glob("*.csv"):
-            artifact.add(str(p))
-
-        try:
-            COMET_EXPERIMENT.log_artifact(artifact)
-        except comet_ml.exceptions.APIError as e:
-            logger.warning(f"Error while logging artifact {artifact} : {e}")
-
-
-    # =================================Preprocess Data==========================================================
-    mask_criteria = df_processed["season"] == 2020
-    TRAIN_DF = df_processed[~mask_criteria].sample(frac=0.5, random_state=DATA_PIPELINE_CONFIG.seed)
-    TEST_DF = df_processed[mask_criteria].sample(frac=0.5, random_state=DATA_PIPELINE_CONFIG.seed)
-    
-    data_preprocessor = NHL_data_preprocessor(
-        df_train = TRAIN_DF,
-        df_test = TEST_DF,
-        cross_validation_k_fold = DATA_PIPELINE_CONFIG.K_Fold,
-        shuffle_before_splitting = DATA_PIPELINE_CONFIG.shuffle_before_splitting,
-        seed = DATA_PIPELINE_CONFIG.seed,
-        label = DATA_PIPELINE_CONFIG.label,
+    DATA_PREPROCESSOR_OBJ, DATA_FEATURE_ENG_OBJ = init_data_for_experiment(
+        RAW_DATA_PATH = PATH_RAW_CSV,
+        DATA_PIPELINE_CONFIG = DATA_PIPELINE_CONFIG,
+        version = FEATURE_ENG_VERSION,
+        comet_experiment_object = COMET_EXPERIMENT,
+        TRAIN_TEST_PREDICATE_SPLITTING = TRAIN_TEST_SPLIT_CONDITION,
+        load_engineered_data_from = LOAD_FROM_EXISTING_FEATURE_ENG_DATA,
+        logger = logger,
     )
     
-    CV_index_generator  = data_preprocessor._split_data()
+    CV_index_generator  = DATA_PREPROCESSOR_OBJ._split_data()
 
+    train_index, val_index = CV_index_generator.__next__()
+    X_train = DATA_PREPROCESSOR_OBJ.X_train.iloc[train_index, :]['distanceToGoal']
+    y_train = DATA_PREPROCESSOR_OBJ.y_train.iloc[train_index]
+    X_val = DATA_PREPROCESSOR_OBJ.X_train.iloc[val_index, :]['distanceToGoal']
+    y_val = DATA_PREPROCESSOR_OBJ.y_train.iloc[val_index]
+    X_test = DATA_PREPROCESSOR_OBJ.X_test['distanceToGoal']
+    y_test = DATA_PREPROCESSOR_OBJ.y_test
+
+    # =================================Optimizer Run==========================================================
+    OPTIMIZER_CONF = cfg.hp_optimizer
+
+    opt = comet_ml.Optimizer(
+        OmegaConf.to_object(OPTIMIZER_CONF),
+    )
+
+    MODEL_TYPE = MODEL_CONFIG.model_type
+
+    now_date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    OUTPUT_DIR = (
+        Path(os.getenv("TRAINING_ARTIFACTS_PATH"))
+        / f'hyp_opt_{MODEL_TYPE}'
+        / now_date
+    )
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # we track the best model
+    BEST_MODEL = {
+        'path' : None,
+        'score' : 0
+    }
+    
+    for i, experiment in enumerate(opt.get_experiments()):
+        
+        experiment.set_name(f'{now_date}_{MODEL_CONFIG.model_type}__{i}')
+
+        MERGED_DICT = OmegaConf.merge(
+            OmegaConf.create(MODEL_CONFIG),
+            OmegaConf.create(experiment.params),
+        )
+
+        TRAINED_CLASSIFIER, training_duration = train_classifier_model(
+            X_train = X_train,
+            y_train = y_train,
+            X_val = X_val,
+            y_val = y_val,
+            DATA_PIPELINE_CONFIG = DATA_PIPELINE_CONFIG,
+            MODEL_CONFIG = MERGED_DICT,
+            logger = logger,
+        )
+
+        logger.info(f"Training duration : {training_duration}")
+
+        VAL_METRICS = assess_classifier_perf(
+            y=y_val,
+            y_pred=TRAINED_CLASSIFIER.predict(X_val),
+            title_model=f'{MODEL_CONFIG.model_type}',
+        )
+
+        SCORE = roc_auc_score(y_val, TRAINED_CLASSIFIER.predict_proba(X_val)[:, 1])
+        if SCORE > BEST_MODEL['score']:
+            logger.info(f"New best model found with score : {SCORE} saved at {OUTPUT_DIR / f'{now_date}_{MODEL_CONFIG.model_type}__{i}'}")
+            BEST_MODEL['score'] = SCORE
+            BEST_MODEL['path'] = OUTPUT_DIR / f'{now_date}_{MODEL_CONFIG.model_type}__{i}.pkl'
+
+            #save model locally
+            TRAINED_CLASSIFIER.save_model(BEST_MODEL['path'])
+
+            experiment.log_model(
+                model_name=f'{MODEL_CONFIG.model_type}',
+                model=TRAINED_CLASSIFIER,
+                overwrite=True,
+            )
+
+
+        experiment.log_metrics(VAL_METRICS, prefix='val_')
+        experiment.log_metric('val_roc_auc_score', SCORE)
+        
+        # Optionally, end the experiment:
+        experiment.end()
+
+@hydra.main(
+    version_base=None, config_path=os.getenv("YAML_CONF_DIR"), config_name="hp_opt_main_conf"
+)
+def main(cfg : DictConfig) -> None:
+    logger = init_logger("run_hp_optimization_search.log")
+    run_hp_optimization_search(cfg, logger)
 
 if __name__ == "__main__":
-    logger = init_logger("training_main.log")
-    run_hp_optimization_search()
+    main()

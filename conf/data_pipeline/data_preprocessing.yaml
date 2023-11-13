@@ -19,3 +19,30 @@ label :
   - isGoal
 
 predicate_train_test_split : 'season == 2020'
+
+
+dropNaCoordinates : True  
+imputeNaSpeed : True
+encodeGameDate : True
+encodeGameType : True
+encodeShooterId : True
+encodeGoalieId : True
+encodeByTeam : True
+encodeShotType : True
+encodeStrength : True
+encodeLastEventType : True
+
+columns_to_drop : 
+  - gameId            
+  - season            
+  - homeTeam
+  - awayTeam
+  - periodTime
+  # - eventType # NEEDED TO ONLY RETRIEVE SHOT&GOAL PLAYS
+  - rinkSide
+  - shooter
+  - goalie            
+  - penaltySeverity
+  - penaltyMinutes
+  - penalizedTeam
+  - winTeam

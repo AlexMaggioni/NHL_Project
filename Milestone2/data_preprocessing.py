@@ -6,7 +6,6 @@ from sklearn.model_selection import StratifiedKFold
 
 from rich.console import Console
 from rich.table import Table
-
 from utils.misc import unify_coordinates_referential, init_logger, verify_dotenv_file
 
 verify_dotenv_file(Path(__file__).parent.parent)
@@ -22,16 +21,17 @@ class NHL_data_preprocessor:
         shuffle_before_splitting : bool, 
         seed : int,
         label : List[str],
-        dropNaCoordinates : bool = True,
-        imputeNaSpeed : bool = True,
-        encodeGameDate : bool = True,
-        encodeGameType : bool = True,
-        encodeShooterId : bool = True,
-        encodeGoalieId : bool = True,
-        encodeByTeam : bool = True,
-        encodeShotType : bool = True,
-        encodeStrength : bool = True,
-        encodeLastEventType : bool = True,        
+        columns_to_drop : List[str],
+        dropNaCoordinates : bool,
+        imputeNaSpeed : bool,
+        encodeGameDate : bool,
+        encodeGameType : bool,
+        encodeShooterId : bool,
+        encodeGoalieId : bool,
+        encodeByTeam : bool,
+        encodeShotType : bool,
+        encodeStrength : bool,
+        encodeLastEventType : bool,        
     ) -> None:
 
         self.df_train = df_train
@@ -52,15 +52,15 @@ class NHL_data_preprocessor:
         self.encodeStrength = encodeStrength
         self.encodeLastEventType = encodeLastEventType
 
-        if self.dropNaCoordinates:
-            logger.info("DROP NA IN COORDINATES - Dropping rows with NaN values in coordinate columns")
-            self.df_train = self._dropNaCoordinates(self.df_train)
-            self.df_test = self._dropNaCoordinates(self.df_test)
-
         if self.imputeNaSpeed:
             logger.info("IMPUTE NA IN speed COLUMN - Imputing NaN values in the speed column with the maximum speed value (cause by TimeElapsed = 0)")
             self.df_train["speed"] = self._imputeNaSpeed(self.df_train)
             self.df_test["speed"] = self._imputeNaSpeed(self.df_test)
+
+        if self.dropNaCoordinates:
+            logger.info("DROP NA IN COORDINATES - Dropping rows with NaN values in coordinate columns")
+            self.df_train = self._dropNaCoordinates(self.df_train)
+            self.df_test = self._dropNaCoordinates(self.df_test)
 
         if self.encodeGameDate:
             logger.info("ENCODE GAME DATE - Encoding gameDate column by converting it to datetime and extracting the month")
@@ -99,27 +99,16 @@ class NHL_data_preprocessor:
 
         if self.encodeByTeam:
             logger.info("ENCODE BY TEAM - Encoding byTeam column by ranking the teams based on the number of wins per season")
+            import pdb;pdb.set_trace()
             self.df_train["byTeam"] = self._encodeByTeam(self.df_train)
             self.df_test["byTeam"] = self._encodeByTeam(self.df_test)
 
-        columns_to_drop = [
-            "gameId",            
-            "season",            
-            "homeTeam",
-            "awayTeam",
-            "periodTime",
-            "eventType",
-            "rinkSide",
-            "shooter",
-            "goalie",            
-            "penaltySeverity",
-            "penaltyMinutes",
-            "penalizedTeam",
-            "winTeam",
-        ]
+        
 
-        self.df_train = self.df_train.drop(columns=columns_to_drop)
-        self.df_test = self.df_test.drop(columns=columns_to_drop)
+        self.columns_to_drop = columns_to_drop
+
+        self.df_train = self.df_train.drop(columns=self.columns_to_drop)
+        self.df_test = self.df_test.drop(columns=self.columns_to_drop)
 
         self.X_train = self.df_train.drop(columns=label)
         self.y_train = self.df_train[label]
@@ -153,6 +142,7 @@ class NHL_data_preprocessor:
         '''
 
         df = data.copy()
+        logger.info(f"\t Number of rows before: {df.shape}")
         df = df.dropna(subset=[
             "coordinateX", 
             "coordinateY", 
@@ -164,6 +154,7 @@ class NHL_data_preprocessor:
             "changeAngle", 
             "speed"
             ])
+        logger.info(f"\t Number of rows after: {df.shape}")
 
         return df
 
@@ -214,9 +205,9 @@ class NHL_data_preprocessor:
         df = data.copy()
         df["gameDate"] = pd.to_datetime(df["gameDate"])
         month = df["gameDate"].dt.month
-        ordinal_month = month - 9
+        ordinal_month = month - 9 # October is considered as the first month : Beginning of the season
         ordinal_month[ordinal_month <= 0] += 12
-        return ordinal_month
+        return ordinal_month.astype(pd.CategoricalDtype(categories=ordinal_month.unique(), ordered=True))
 
     def _encodeGameType(self, data : pd.DataFrame) -> pd.DataFrame:
         '''
@@ -303,10 +294,12 @@ class NHL_data_preprocessor:
         overall_mean_per_season = df.groupby('season')['save_ratio'].mean()
         df['season_mean_save_ratio'] = df['season'].map(overall_mean_per_season)
 
-        weight = df['shotsFaced'] / confidence_threshold
+        df['gamesPlayed'] = df.groupby(['season', 'goalieId'])['gameId'].transform('nunique')
+        weight = df['gamesPlayed'] / confidence_threshold
         weight = weight.where(weight <= 1, 1)  # Ensuring the ratio does not exceed 1
         df['weighted_save_ratio'] = weight * df['save_ratio'] + (1 - weight) * df['season_mean_save_ratio']
 
+        logger.info(f" IMPUTING GoalieID with median of {df['weighted_save_ratio'].median()}")
         # Impute NaN values in weighted_save_ratio with the median
         df['weighted_save_ratio'] = df['weighted_save_ratio'].fillna(df['weighted_save_ratio'].median())
 
@@ -333,8 +326,10 @@ class NHL_data_preprocessor:
 
         df = data.copy()
 
+        logger.info("IMPUTE NA IN shotType COLUMN BY 'Wrist Shot'")
         df['shotType'] = df['shotType'].fillna('Wrist Shot')
         one_hot_encoded_df = pd.get_dummies(df, columns=['shotType'], prefix='', prefix_sep='shotType_')
+        logger.info('ONE-HOT ENCODING shotType COLUMN : {}'.format(df['shotType'].nunique()))
         return one_hot_encoded_df
 
     def _encodeStrength(self, data : pd.DataFrame) -> pd.DataFrame:
@@ -400,7 +395,7 @@ class NHL_data_preprocessor:
 
         df.loc[df['lastEventType'].isin(other_events), 'lastEventType'] = 'OTHER'
         one_hot_encoded_df = pd.get_dummies(df, columns=['lastEventType'], prefix='', prefix_sep='lastEventType_')
-
+        logger.info('ONE-HOT ENCODING lastEventType COLUMN : {}'.format(df['lastEventType'].nunique()))
         return one_hot_encoded_df
 
     def _encodeByTeam(self, data : pd.DataFrame) -> pd.DataFrame:
@@ -428,4 +423,36 @@ class NHL_data_preprocessor:
         team_rank = team_wins.groupby(level=0, group_keys=False).rank(method='first', ascending=False)
 
         df = df.join(team_rank.rename('team_rank'), on=['season', 'winTeam'])
-        return df['team_rank']
+
+        return df['team_rank'].astype(pd.CategoricalDtype(categories=sorted(df['team_rank'].unique(),reverse=True), ordered=True))
+    
+
+    def _split_data(self):
+
+        skf = StratifiedKFold(
+            n_splits=self.cross_validation_k_fold, 
+            shuffle=self.shuffle_before_splitting, 
+            random_state=self.seed
+        )
+
+        logger.info(f"Splitting the data for Cross-Validation keeping class balance with K : {self.cross_validation_k_fold}")
+
+        dummy_train_index, dummy_test_index = skf.split(self.X_train, self.y_train).__next__()
+        self._print_splitting_stats(
+            y_train=self.y_train.iloc[dummy_train_index],
+            y_val=self.y_train.iloc[dummy_test_index],
+        )
+        
+        return skf.split(self.X_train, self.y_train)
+    
+    def _print_splitting_stats(self, y_train=None, y_val=None):
+        table = Table(title="Train/Val sets - Class Distribution", show_edge=True,show_lines=True,expand=True)
+
+        table.add_column("Split type", justify="left", style="cyan", no_wrap=True)
+        table.add_column("NOTHING", style="magenta")
+        [table.add_column(class_name, style="magenta") for class_name in self.label]
+        table.add_row('Train', *y_train.value_counts().astype(str).to_list())
+        table.add_row('Val', *y_val.value_counts().astype(str).to_list())
+
+        console = Console()
+        console.print(table)

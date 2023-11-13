@@ -7,8 +7,8 @@ algorithm: bayes
 # https://www.comet.com/docs/v2/api-and-sdk/python-sdk/introduction-optimizer/#spec
 spec: 
   maxCombo: 0
-  objective: minimize
-  metric: loss
+  objective: maximize
+  metric: accuracy
   minSampleSize: 100
   retryLimit: 20
   retryAssignLimit: 0
@@ -16,16 +16,47 @@ spec:
 # Dictionary, defining the parameter distribution space
 # https://www.comet.com/docs/v2/api-and-sdk/python-sdk/introduction-optimizer/#parameters
 parameters:
-    hidden-layer-size: 
-      type: integer
-      min: 5
-      max: 100
-    hidden2-layer-size: 
-      type: discrete 
-      values: 
-        - 16
-        - 32
-        - 64
+
+  max_depth :
+    type: integer
+    # scaling_type: uniform
+    min: 3
+    max: 18
+
+  max_leaves :
+    type: integer
+    min: 0
+    max: 10
+
+  reg_lambda :
+    type: float
+    # scaling_type: uniform
+    min: 0
+    max: 1
+
+  reg_alpha :
+    type: float
+    # scaling_type: uniform
+    min: 40
+    max: 180
+
+  gamma:
+    type: integer
+    # scaling_type: uniform
+    min: 1
+    max: 9
+
+  min_child_weight : 
+    type: integer
+    # scaling_type: uniform
+    min: 0
+    max: 10
+
+  colsample_bytree :
+    type: float
+    # scaling_type: uniform
+    min: 0.5
+    max: 1
 
 # (Optional) String, specifying a personalizable name to associate with this search instance
-name: Test Optimizer
+name: XGBoost Hyperparameter Optimization

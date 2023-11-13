@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+import numpy as np
 import pandas as pd
 import json
 from tqdm import tqdm
@@ -184,16 +185,15 @@ class JsonParser:
         path_csv_output : Path,
         seasons_to_consider : list[int],
         shotGoalOnly: bool):
-        
-        
-        if os.path.exists(path_csv_output):
-            df = pd.read_csv(path_csv_output, parse_dates=["gameDate"])
-            logger.info(f"DataFrame loaded from {path_csv_output}")
-            return df
 
-        base_parser = JsonParser()
 
         ROOT_DATA = Path(os.getenv("DATA_FOLDER"))
+        OUTPUT_PATH = ROOT_DATA / path_csv_output
+        
+        if os.path.exists(OUTPUT_PATH):
+            df = pd.read_csv(OUTPUT_PATH, parse_dates=["gameDate"])
+            logger.info(f"SKIPPING SCRAPPING >>> DataFrame loaded from {OUTPUT_PATH}")
+            return JsonParser(df=df, path=OUTPUT_PATH)
 
 
         all_seasons = sorted(list(filter(
@@ -201,6 +201,7 @@ class JsonParser:
             os.listdir(ROOT_DATA)
         )))
 
+        base_parser = JsonParser()
         with tqdm(total=len(all_seasons)) as pbar1:
             for season in all_seasons:
                 pbar1.set_description(f"Processing json files of season {season}")
@@ -214,10 +215,34 @@ class JsonParser:
                         pbar2.update(1)
                 pbar1.update(1)
 
-        OUTPUT_PATH = ROOT_DATA / path_csv_output
         base_parser.df.to_csv(OUTPUT_PATH, index=False)
         logger.info(f"DataFrame saved to {OUTPUT_PATH}")
-        return base_parser.df
+        base_parser.path = OUTPUT_PATH
+        return base_parser
+    
+    def log_csv_as_artifact(self):
+        from comet_ml import Experiment, Artifact
+        experiment = Experiment(
+            project_name="json-scrapper-output",
+            workspace="nhl-project",
+            auto_output_logging="simple",
+        )
+
+        art = Artifact(
+            Path(self.path).stem,
+            'json-scrapper-output',
+            metadata={
+                'columns': list(self.df.columns),
+                'shape': self.df.shape,
+                'seasons' : self.df.season.unique().tolist(),
+                'event_Type' : self.df.eventType.unique().tolist(),
+            }
+        )
+
+        art.add(self.path)
+        experiment.log_artifact(art)
+        experiment.end()
+
 
 def cli_args():
     '''
@@ -241,6 +266,7 @@ def cli_args():
     parser.add_argument('-p_csv', '--path_to_csv', type=str, required=True, help='Path to the csv file. WILL BE CONCATENATED WITH the .env\'s DATA_FOLDER var. PUT THE COMMIT ID IN THE NAME !!!!!!!!!!!!!!!!!!!!')
     parser.add_argument('-y','--years', required=True, nargs='+', type=str, help='years of seasons to iterate on')
     parser.add_argument('--shotGoalOnly', action='store_true', help='Filter only "GOAL" and "SHOT" events')
+    parser.add_argument('--comet_dl',default=True, action='store_true', help='Comet : at exp. "json-scrapper-output" push as an artifact the csv file ')
     args = parser.parse_args()
     return args
 
@@ -256,8 +282,11 @@ if __name__ == "__main__":
     logger = init_logger("json_scrapper.log")
     args = cli_args()
 
-    JsonParser.load_all_seasons(
+    parser_obj = JsonParser.load_all_seasons(
         args.path_to_csv,
         args.years,
         args.shotGoalOnly
     )
+
+    if args.comet_dl:
+        parser_obj.log_csv_as_artifact()

@@ -5,9 +5,13 @@ from Milestone2.feature_engineering import NHLFeatureEngineering
 
 
 def log_feature_eng_obj(
-        COMET_EXPERIMENT : Experiment,
         DATA_ENGINEERED_OBJ : NHLFeatureEngineering,
 ) -> int:
+    COMET_EXPERIMENT = Experiment(
+        project_name=f'feature-engineering-output',
+        workspace='nhl-project',
+    )
+
     artifact = Artifact(
         name=f"FeatEng_df_{DATA_ENGINEERED_OBJ.version}__{DATA_ENGINEERED_OBJ.RAW_DATA_PATH.stem}__{DATA_ENGINEERED_OBJ.uniq_id}", 
         artifact_type="FeatEng_df",
@@ -30,7 +34,7 @@ def log_feature_eng_obj(
         COMET_EXPERIMENT.log_artifact(artifact)
         DATA_ENGINEERED_OBJ.logged_to_comet = True
         return 0
-    except comet_ml.exceptions.APIError as e:
+    except Exception as e:
         print(f"Error while logging artifact {artifact} : {e}")
         return -1
     
