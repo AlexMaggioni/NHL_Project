@@ -65,21 +65,25 @@ def run_experiment(cfg: DictConfig, logger) -> None:
     # =================================Task-Specific (Classification Prob goal) data pre-proc=================================
     # ================== eventType only SHOT | GOAL
     logger.info('SUBSETTING data TO SHOT | GOAL eventType')
-    logger.info(f"\n Before subsetting : {DATA_PREPROCESSOR_OBJ.X_train.shape} rows in train set")
-    logger.info(f"\n Before subsetting : {DATA_PREPROCESSOR_OBJ.X_test.shape} rows in test set")
     idx_train = DATA_PREPROCESSOR_OBJ.X_train.query("eventType == 'SHOT' | eventType == 'GOAL'").index
     idx_test = DATA_PREPROCESSOR_OBJ.X_test.query("eventType == 'SHOT' | eventType == 'GOAL'").index
+    
+    logger.info(f"\t Before subsetting : {DATA_PREPROCESSOR_OBJ.X_train.shape} rows in train set")
     DATA_PREPROCESSOR_OBJ.X_train = DATA_PREPROCESSOR_OBJ.X_train[DATA_PREPROCESSOR_OBJ.X_train.index.isin(idx_train)]
     DATA_PREPROCESSOR_OBJ.y_train = DATA_PREPROCESSOR_OBJ.y_train[DATA_PREPROCESSOR_OBJ.y_train.index.isin(idx_train)]
+    logger.info(f"\t After subsetting : {DATA_PREPROCESSOR_OBJ.X_train.shape} rows in train set")
+    
+    logger.info(f"\t Before subsetting : {DATA_PREPROCESSOR_OBJ.X_test.shape} rows in test set")
     DATA_PREPROCESSOR_OBJ.X_test = DATA_PREPROCESSOR_OBJ.X_test[DATA_PREPROCESSOR_OBJ.X_test.index.isin(idx_test)]
     DATA_PREPROCESSOR_OBJ.y_test = DATA_PREPROCESSOR_OBJ.y_test[DATA_PREPROCESSOR_OBJ.y_test.index.isin(idx_test)]
-    logger.info(f"\n After subsetting : {DATA_PREPROCESSOR_OBJ.X_train.shape} rows in train set")
-    logger.info(f"\n After subsetting : {DATA_PREPROCESSOR_OBJ.X_test.shape} rows in test set")
+    logger.info(f"\t After subsetting : {DATA_PREPROCESSOR_OBJ.X_test.shape} rows in test set")
 
     if cfg.SUBSET_TO_ANGLE_DIST:
         logger.info('SUBSETTING data TO ANGLE AND DISTANCE')
         DATA_PREPROCESSOR_OBJ.X_train = DATA_PREPROCESSOR_OBJ.X_train[['distanceToGoal', 'angleToGoal']]
         DATA_PREPROCESSOR_OBJ.X_test = DATA_PREPROCESSOR_OBJ.X_test[['distanceToGoal', 'angleToGoal']]
+
+
 
     # =================================Train Model=================================
 
@@ -88,25 +92,19 @@ def run_experiment(cfg: DictConfig, logger) -> None:
     CV_index_generator  = DATA_PREPROCESSOR_OBJ._split_data()
     train_index, val_index = CV_index_generator.__next__()
 
-
     STATS_EXPERIMENT = {}
     PATH_GRAPHS_TO_LOG_TO_COMET = []
 
     (OUTPUT_DIR / 'val').mkdir(parents=True, exist_ok=True)
 
-    X_train = DATA_PREPROCESSOR_OBJ.X_train
-    y_train = DATA_PREPROCESSOR_OBJ.y_train
-    X_test = DATA_PREPROCESSOR_OBJ.X_test
-    y_test = DATA_PREPROCESSOR_OBJ.y_test
-
     for features_to_include in [["distanceToGoal"], ["angleToGoal"], ["distanceToGoal", "angleToGoal"]]:
 
-        X_train = X_train[X_train.index.isin(train_index)][features_to_include]
-        y_train = y_train[y_train.index.isin(train_index)]
-        X_val = X_train[X_train.index.isin(val_index)][features_to_include]
-        y_val = y_train[y_train.index.isin(val_index)]
-        X_test = X_test[features_to_include]
-
+        X_train = DATA_PREPROCESSOR_OBJ.X_train.iloc[train_index,:][features_to_include]
+        y_train = DATA_PREPROCESSOR_OBJ.y_train.iloc[train_index,:]
+        X_val = DATA_PREPROCESSOR_OBJ.X_train.iloc[val_index,:][features_to_include]
+        y_val = DATA_PREPROCESSOR_OBJ.y_train.iloc[val_index,:]
+        X_test = DATA_PREPROCESSOR_OBJ.X_test[features_to_include]
+        y_test = DATA_PREPROCESSOR_OBJ.y_test
 
         logger.info(f"Training model {MODEL_CONFIG.model_type} with features : {features_to_include}")
 
@@ -124,7 +122,8 @@ def run_experiment(cfg: DictConfig, logger) -> None:
             y_val = y_val,
             X_test = X_test,
             y_test = y_test,
-            title = '+'.join(features_to_include)
+            title = '+'.join(features_to_include),
+            logger = logger
         )
 
         logger.info("Training model")
@@ -138,7 +137,7 @@ def run_experiment(cfg: DictConfig, logger) -> None:
             logger = logger,
         )
 
-        with tempfile.TemporaryFile() as fp:
+        with tempfile.NamedTemporaryFile() as fp:
             if MODEL_CONFIG.model_type == "LogisticRegression":
                 dump(TRAINED_CLASSIFIER, fp.name)
             if MODEL_CONFIG.model_type == "XGBoostClassifier":
@@ -214,14 +213,15 @@ def run_experiment(cfg: DictConfig, logger) -> None:
                 title=model_title,
             ))
 
-            logger.info("Plotting XGBOOST feature importance for model {model_title}")
-            PATH_GRAPHS_TO_LOG_TO_COMET.extend(plot_XGBOOST_feat_importance(
-                OUTPUT_DIR = OUTPUT_DIR/ 'val',
-                COMET_EXPERIMENT = COMET_EXPERIMENT,
-                logger = logger,
-                classifier = TRAINED_CLASSIFIER,
-                X_train_samples=X_train.sample(1000, random_state=DATA_PIPELINE_CONFIG.seed),
-            ))
+            if getattr(TRAINED_CLASSIFIER, 'importance_type', None) :
+                logger.info("Plotting XGBOOST feature importance for model {model_title}")
+                PATH_GRAPHS_TO_LOG_TO_COMET.extend(plot_XGBOOST_feat_importance(
+                    OUTPUT_DIR = OUTPUT_DIR/ 'val',
+                    COMET_EXPERIMENT = COMET_EXPERIMENT,
+                    logger = logger,
+                    classifier = TRAINED_CLASSIFIER,
+                    X_train_samples=X_train.sample(1000, random_state=DATA_PIPELINE_CONFIG.seed),
+                ))
 
     # _______________________ Training and Validation finished
 

@@ -47,20 +47,24 @@ def log_data_splits_to_comet(
         X_test : pd.DataFrame,
         y_test : pd.Series,
         title : str,
+        logger,
 ) -> None:
 
+    logger.info(f"Logging train splits to comet")
     COMET_EXPERIMENT.log_dataframe_profile(
         X_train, f"train_set_features__{title}", minimal=True)
     
     COMET_EXPERIMENT.log_dataframe_profile(
         y_train, f"train_set_label__{title}", minimal=True)
-
+    
+    logger.info(f"Logging val splits to comet")
     COMET_EXPERIMENT.log_dataframe_profile(
         X_val, f"val_set_features__{title}", minimal=True)
     
     COMET_EXPERIMENT.log_dataframe_profile(
         y_val, f"val_set_label__{title}", minimal=True)
     
+    logger.info(f"Logging test splits to comet")
     COMET_EXPERIMENT.log_dataframe_profile(
         X_test, f"test_set_features__{title}", minimal=True)
     

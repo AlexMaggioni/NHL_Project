@@ -239,28 +239,19 @@ def plot_XGBOOST_losses(results, OUTPUT_DIR, title) -> List[Path]:
 
     res = []
 
-    epochs = len(results['validation_0']['mlogloss'])
+    epochs = len(results['validation_0'][list(results['validation_0'].keys())[0]])
     x_axis = range(0, epochs)
 
-    # xgboost 'mlogloss' plot
-    fig, ax = plt.subplots(figsize=(9,5))
-    ax.plot(x_axis, results['validation_0']['mlogloss'], label='Train')
-    ax.plot(x_axis, results['validation_1']['mlogloss'], label='Val')
-    ax.legend()
-    plt.ylabel('mlogloss')
-    plt.title(f'{title} mlogloss')
-    plt.savefig(OUTPUT_DIR / f'{title}_mlogloss.png')
-    res.append(OUTPUT_DIR / f'{title}_mlogloss.png')
+    for split, metric in results.items():
 
-    # xgboost 'merror' plot
-    fig, ax = plt.subplots(figsize=(9,5))
-    ax.plot(x_axis, results['validation_0']['merror'], label='Train')
-    ax.plot(x_axis, results['validation_1']['merror'], label='Val')
-    ax.legend()
-    plt.ylabel('merror')
-    plt.title(f'{title} merror')
-    plt.savefig(OUTPUT_DIR / f'{title}_merror.png')
-    res.append(OUTPUT_DIR / f'{title}_merror.png')
+        fig, ax = plt.subplots(figsize=(9,5))
+        for loss_name, value_loss in metric.items():
+            ax.plot(x_axis, value_loss, label=loss_name)
+        ax.legend()
+        plt.ylabel('Losses/Error')
+        plt.title(f'{title} {split} losses/error')
+        plt.savefig(OUTPUT_DIR / f'{title}_{split}_losses.png')
+        res.append(OUTPUT_DIR / f'{title}_{split}_losses.png')
 
     return res
 
