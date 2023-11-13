@@ -62,8 +62,6 @@ def run_experiment(cfg: DictConfig, logger) -> None:
         logger = logger,
     )  
 
-    import pdb; pdb.set_trace()
-    
     # =================================Task-Specific (Classification Prob goal) data pre-proc=================================
     # ================== eventType only SHOT | GOAL
     logger.info('SUBSETTING data TO SHOT | GOAL eventType')
@@ -103,7 +101,6 @@ def run_experiment(cfg: DictConfig, logger) -> None:
 
     for features_to_include in [["distanceToGoal"], ["angleToGoal"], ["distanceToGoal", "angleToGoal"]]:
 
-        import pdb; pdb.set_trace()
         X_train = X_train[X_train.index.isin(train_index)][features_to_include]
         y_train = y_train[y_train.index.isin(train_index)]
         X_val = X_train[X_train.index.isin(val_index)][features_to_include]

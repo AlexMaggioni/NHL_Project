@@ -99,7 +99,6 @@ class NHL_data_preprocessor:
 
         if self.encodeByTeam:
             logger.info("ENCODE BY TEAM - Encoding byTeam column by ranking the teams based on the number of wins per season")
-            import pdb;pdb.set_trace()
             self.df_train["byTeam"] = self._encodeByTeam(self.df_train)
             self.df_test["byTeam"] = self._encodeByTeam(self.df_test)
 
