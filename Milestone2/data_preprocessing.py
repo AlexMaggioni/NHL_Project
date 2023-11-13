@@ -10,7 +10,7 @@ from rich.table import Table
 from utils.misc import unify_coordinates_referential, init_logger, verify_dotenv_file
 
 verify_dotenv_file(Path(__file__).parent.parent)
-logger = init_logger("feature_engineering.log")
+logger = init_logger("data_preprocessing.log")
 
 class NHL_data_preprocessor:
 
@@ -46,51 +46,80 @@ class NHL_data_preprocessor:
         self.encodeGameDate = encodeGameDate
         self.encodeGameType = encodeGameType
         self.encodeShooterId = encodeShooterId
-        self.encodeGoalieId = encodeGoalieIdÀ
+        self.encodeGoalieId = encodeGoalieId
         self.encodeByTeam = encodeByTeam
         self.encodeShotType = encodeShotType
         self.encodeStrength = encodeStrength
         self.encodeLastEventType = encodeLastEventType
 
         if self.dropNaCoordinates:
-            self.df_train = self.dropNaCoordinates(self.df_train)
-            self.df_test = self.dropNaCoordinates(self.df_test)
+            logger.info("DROP NA IN COORDINATES - Dropping rows with NaN values in coordinate columns")
+            self.df_train = self._dropNaCoordinates(self.df_train)
+            self.df_test = self._dropNaCoordinates(self.df_test)
 
         if self.imputeNaSpeed:
-            self.df_train["speed"] = self.imputeNaSpeed(self.df_train)
-            self.df_test["speed"] = self.imputeNaSpeed(self.df_test)
+            logger.info("IMPUTE NA IN speed COLUMN - Imputing NaN values in the speed column with the maximum speed value (cause by TimeElapsed = 0)")
+            self.df_train["speed"] = self._imputeNaSpeed(self.df_train)
+            self.df_test["speed"] = self._imputeNaSpeed(self.df_test)
 
         if self.encodeGameDate:
-            self.df_train["gameDate"] = self.encodeGameData(self.df_train)
-            self.df_test["gameDate"] = self.encodeGameData(self.df_test)
+            logger.info("ENCODE GAME DATE - Encoding gameDate column by converting it to datetime and extracting the month")
+            self.df_train["gameDate"] = self._encodeGameDate(self.df_train)
+            self.df_test["gameDate"] = self._encodeGameDate(self.df_test)
 
         if self.encodeGameType:
-            self.df_train["gameType"] = self.encodeGameType(self.df_train)
-            self.df_test["gameType"] = self.encodeGameType(self.df_test)
+            logger.info("ENCODE GAME TYPE - Encoding gameType column by converting it to binary")
+            self.df_train["gameType"] = self._encodeGameType(self.df_train)
+            self.df_test["gameType"] = self._encodeGameType(self.df_test)
 
         if self.encodeShooterId:
-            self.df_train["shooterId"] = self.encodeShooterId(self.df_train)
-            self.df_test["shooterId"] = self.encodeShooterId(self.df_test)
+            logger.info("ENCODE SHOOTER ID - Encoding shooterId column by calculating the mean goals per game for each player per season")
+            self.df_train["shooterId"] = self._encodeShooterId(self.df_train)
+            self.df_test["shooterId"] = self._encodeShooterId(self.df_test)
 
         if self.encodeGoalieId:
-            self.df_train["goalieId"] = self.encodeGoalieId(self.df_train)
-            self.df_test["goalieId"] = self.encodeGoalieId(self.df_test)
+            logger.info("ENCODE GOALIE ID - Encoding goalieId column by calculating the mean save ratio for each goalie per season and impute NA by median")
+            self.df_train["goalieId"] = self._encodeGoalieId(self.df_train)
+            self.df_test["goalieId"] = self._encodeGoalieId(self.df_test)
 
         if self.encodeShotType:
-            self.df_train = self.encodeShotType(self.df_train)
-            self.df_test = self.encodeShotType(self.df_test)
+            logger.info("ENCODE SHOT TYPE - Encoding shotType column using one-hot encoding")
+            self.df_train = self._encodeShotType(self.df_train)
+            self.df_test = self._encodeShotType(self.df_test)
 
         if self.encodeStrength:
-            self.df_train["strength"] = self.encodeStrength(self.df_train)
-            self.df_test["strength"] = self.encodeStrength(self.df_test)
+            logger.info("ENCODE STRENGTH - Encoding strength column by calculating the difference between the number of skaters of the byTeam the other team skater")
+            self.df_train["strength"] = self._encodeStrength(self.df_train)
+            self.df_test["strength"] = self._encodeStrength(self.df_test)
 
         if self.encodeLastEventType:
-            self.df_train = self.encodeLastEventType(self.df_train)
-            self.df_test = self.encodeLastEventType(self.df_test)
+            logger.info("ENCODE LAST EVENT TYPE - Encoding lastEventType column by grouping certain event types into 'OTHER' and applying one-hot encoding")
+            self.df_train = self._encodeLastEventType(self.df_train)
+            self.df_test = self._encodeLastEventType(self.df_test)
 
         if self.encodeByTeam:
-            self.df_train["byTeam"] = self.encodeByTeam(self.df_train)
-            self.df_test["byTeam"] = self.encodeByTeam(self.df_test)
+            logger.info("ENCODE BY TEAM - Encoding byTeam column by ranking the teams based on the number of wins per season")
+            self.df_train["byTeam"] = self._encodeByTeam(self.df_train)
+            self.df_test["byTeam"] = self._encodeByTeam(self.df_test)
+
+        columns_to_drop = [
+            "gameId",            
+            "season",            
+            "homeTeam",
+            "awayTeam",
+            "periodTime",
+            "eventType",
+            "rinkSide",
+            "shooter",
+            "goalie",            
+            "penaltySeverity",
+            "penaltyMinutes",
+            "penalizedTeam",
+            "winTeam",
+        ]
+
+        self.df_train = self.df_train.drop(columns=columns_to_drop)
+        self.df_test = self.df_test.drop(columns=columns_to_drop)
 
         self.X_train = self.df_train.drop(columns=label)
         self.y_train = self.df_train[label]
@@ -99,7 +128,7 @@ class NHL_data_preprocessor:
         self.y_test = self.df_test[label]
 
     
-    def dropNaCoordinates(self, data : pd.DataFrame) -> pd.DataFrame:
+    def _dropNaCoordinates(self, data : pd.DataFrame) -> pd.DataFrame:
         '''
         Drop rows with NaN values in the following columns:
             - coordinateX
@@ -138,7 +167,7 @@ class NHL_data_preprocessor:
 
         return df
 
-    def imputeNaSpeed(self, data : pd.DataFrame) -> pd.DataFrame:
+    def _imputeNaSpeed(self, data : pd.DataFrame) -> pd.DataFrame:
         '''
         Impute NaN values in the speed column with the maximum speed value
 
@@ -158,7 +187,7 @@ class NHL_data_preprocessor:
         return df["speed"]
 
 
-    def encodeGameDate(self, data : pd.DataFrame) -> pd.DataFrame:
+    def _encodeGameDate(self, data : pd.DataFrame) -> pd.DataFrame:
         '''
         Encode the gameDate column by converting it to datetime and extracting the month. 
         The month is then transformed into an ordinal number where September is the first month.
@@ -189,7 +218,7 @@ class NHL_data_preprocessor:
         ordinal_month[ordinal_month <= 0] += 12
         return ordinal_month
 
-    def encodeGameType(self, data : pd.DataFrame) -> pd.DataFrame:
+    def _encodeGameType(self, data : pd.DataFrame) -> pd.DataFrame:
         '''
         Encode the gameType column by converting it to binary, where "P" is represented as 1 and any other value as 0.
 
@@ -216,7 +245,7 @@ class NHL_data_preprocessor:
         df["gameType"] = (data["gameType"] == "P").astype(int)
         return df["gameType"]
 
-    def encodeShooterId(self, data: pd.DataFrame, confidence_threshold: int = 41) -> pd.DataFrame:
+    def _encodeShooterId(self, data: pd.DataFrame, confidence_threshold: int = 41) -> pd.DataFrame:
         '''
         Encode the shooterId column by calculating the mean goals per game for each player per season.
         A certainty threshold is used to determine in which proportion to use the player's 
@@ -248,7 +277,7 @@ class NHL_data_preprocessor:
 
         return df['weighted_mean_goals_per_game']
 
-    def encodeGoalieId(self, data : pd.DataFrame) -> pd.DataFrame:
+    def _encodeGoalieId(self, data : pd.DataFrame, confidence_threshold: int = 41) -> pd.DataFrame:
         '''
         Encode the goalieId column by calculating the mean save ratio for each goalie per season.
         A certainty threshold is used to determine in which proportion to use the player's mean 
@@ -278,9 +307,12 @@ class NHL_data_preprocessor:
         weight = weight.where(weight <= 1, 1)  # Ensuring the ratio does not exceed 1
         df['weighted_save_ratio'] = weight * df['save_ratio'] + (1 - weight) * df['season_mean_save_ratio']
 
+        # Impute NaN values in weighted_save_ratio with the median
+        df['weighted_save_ratio'] = df['weighted_save_ratio'].fillna(df['weighted_save_ratio'].median())
+
         return df['weighted_save_ratio']
 
-    def encodeShotType(self, data : pd.DataFrame) -> pd.DataFrame:
+    def _encodeShotType(self, data : pd.DataFrame) -> pd.DataFrame:
         '''
         Encode the shotType column using one-hot encoding.
         Impute NA values with "Wrist Shot" because it is the most common shot type by a large margin.
@@ -305,7 +337,7 @@ class NHL_data_preprocessor:
         one_hot_encoded_df = pd.get_dummies(df, columns=['shotType'], prefix='', prefix_sep='shotType_')
         return one_hot_encoded_df
 
-    def encodeStrength(self, data : pd.DataFrame) -> pd.DataFrame:
+    def _encodeStrength(self, data : pd.DataFrame) -> pd.DataFrame:
         '''
         Encode the strength column by calculating the difference between the number of skaters of the byTeam the other team skater.
 
@@ -331,7 +363,7 @@ class NHL_data_preprocessor:
 
         return df["strength"]
 
-    def encodeLastEventType(self, data : pd.DataFrame) -> pd.DataFrame:
+    def _encodeLastEventType(self, data : pd.DataFrame) -> pd.DataFrame:
         '''
         Encode the lastEventType column by grouping certain event types into 'OTHER' and applying one-hot encoding.
 
@@ -371,7 +403,7 @@ class NHL_data_preprocessor:
 
         return one_hot_encoded_df
 
-    def encodeByTeam(self, data : pd.DataFrame) -> pd.DataFrame:
+    def _encodeByTeam(self, data : pd.DataFrame) -> pd.DataFrame:
         '''
         Encode the byTeam column by ranking the teams based on the number of wins per season.
 
@@ -385,7 +417,7 @@ class NHL_data_preprocessor:
         pd.DataFrame
             The dataframe with byTeam encoded
         '''
-        
+
         if "byTeam" not in data.columns:
             raise ValueError("byTeam column not found in dataframe") 
 

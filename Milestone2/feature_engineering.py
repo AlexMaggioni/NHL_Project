@@ -215,20 +215,20 @@ class NHLFeatureEngineering:
 
         rinkSideNa = coordsToSelect[coordsToSelect['rinkSide'].isna()].index
 
-        logger.info(f"Found {len(coordsToSelect)} shots with coordinates and rinkSide specified.")
+        logger.info(f"Found {len(coordsToSelect)} events with coordinates and rinkSide specified.")
         if self.verbose:
             naXAndYSetIndex = shotsWithoutXCoords.intersection(shotsWithoutYCoords)
             naOnlyXSetIndex = shotsWithoutXCoords - shotsWithoutYCoords
             naOnlyYSetIndex = shotsWithoutYCoords - shotsWithoutXCoords
             logger.info(f"""
                 Coordinates NA stats:
-                    {len(self.df) - len(coordsToSelect)} shots without coordinates.
-                    {len(naXAndYSetIndex)} shots without both X and Y coordinates.
-                    {len(naOnlyXSetIndex)} shots without X coordinates.
-                    {len(naOnlyYSetIndex)} shots without Y coordinates.
+                    {len(self.df) - len(coordsToSelect)} events without coordinates.
+                    {len(naXAndYSetIndex)} events without both X and Y coordinates.
+                    {len(naOnlyXSetIndex)} events without X coordinates.
+                    {len(naOnlyYSetIndex)} events without Y coordinates.
                 
                 RinkSide NA stats:
-                    {len(rinkSideNa)} shots without rinkSide specified. Use imputeRinkSide == True to handle missing 
+                    {len(rinkSideNa)} events without rinkSide specified. Use imputeRinkSide == True to handle missing 
                     values based on mean X coordinates in a period for a given team and gameId.
             """)
         return self.df
@@ -298,7 +298,8 @@ class NHLFeatureEngineering:
         '''
         Calculate the time elapsed since the last event.
         '''
-        seconds = self.calculatePeriodTimeSeconds()
+        df_sorted = self.df.sort_values(by=['gameId', 'period', 'periodTime']).copy()
+        seconds = df_sorted['periodTime'].apply(lambda x: int(x.split(':')[0]) * 60 + int(x.split(':')[1]))
         return (seconds - seconds.shift(1)).reindex(self.df.index)
 
     def calculateDistanceFromLastEvent(self):
@@ -352,8 +353,10 @@ class NHLFeatureEngineering:
         )
         distances_series = pd.Series(distances, index=df_sorted.index)
 
-        timeElapsed = df_sorted['periodTime'].apply(lambda x: int(x.split(':')[0]) * 60 + int(x.split(':')[1]))
+        seconds = df_sorted['periodTime'].apply(lambda x: int(x.split(':')[0]) * 60 + int(x.split(':')[1]))
+        timeElapsed = seconds - seconds.shift(1)
         timeElapsed = timeElapsed.replace(0, np.nan)
+
         speed = (distances_series / timeElapsed)
         return speed.reindex(self.df.index)
 
