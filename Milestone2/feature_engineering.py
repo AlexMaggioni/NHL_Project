@@ -353,8 +353,8 @@ class NHLFeatureEngineering:
         distances_series = pd.Series(distances, index=df_sorted.index)
 
         timeElapsed = df_sorted['periodTime'].apply(lambda x: int(x.split(':')[0]) * 60 + int(x.split(':')[1]))
-        timeElapsed = timeElapsed.replace(0, 1e-100)
-        speed = (distances_series / timeElapsed).replace(np.inf, 0)
+        timeElapsed = timeElapsed.replace(0, np.nan)
+        speed = (distances_series / timeElapsed)
         return speed.reindex(self.df.index)
 
     def parse_period_time(self, time_str):

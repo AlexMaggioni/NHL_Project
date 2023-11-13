@@ -38,6 +38,18 @@ class JsonParser:
         gameData = data["gameData"]
         liveData = data["liveData"]["plays"]["allPlays"]
         rinkSide = data["liveData"]["linescore"]["periods"]
+        linescore = data["liveData"]["linescore"]
+
+        winning_team = None
+        if 'teams' in linescore:
+                home_goals = linescore['teams']['home'].get('goals', 0)
+                away_goals = linescore['teams']['away'].get('goals', 0)
+                if home_goals > away_goals:
+                    winning_team = linescore["teams"]["home"]["team"].get('triCode')
+                elif away_goals > home_goals:
+                    winning_team = linescore["teams"]["away"]["team"].get('triCode')
+                else:
+                    winning_team = np.nan
 
         # New logic for extracting rink side information
         rink_side_dict = {}
@@ -53,13 +65,14 @@ class JsonParser:
         rows = []
         for play in liveData:
             if not shotGoalOnly or play["result"]["eventTypeId"] in ["GOAL", "SHOT"]:
-                row_data = self.extract_play_data(play, game_info, rink_side_dict)
+                row_data = self.extract_play_data(play, game_info, rink_side_dict, winning_team)
                 rows.append(row_data)
 
         df = pd.DataFrame(rows)
         return df
 
     def extract_game_info(self, gameData):
+
         game_info = {
             "gameId": int(gameData.get("game", {}).get("pk", None)),
             "season": int(gameData.get("game", {}).get("season", None)[:4]),
@@ -73,7 +86,7 @@ class JsonParser:
     def parse_date(self, date_str):
         return datetime.datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ").strftime("%Y-%m-%d") if date_str else None
 
-    def extract_play_data(self, play, game_info, rink_side_dict):
+    def extract_play_data(self, play, game_info, rink_side_dict, win_team):
         period = int(play.get("about", {}).get("period", None))
         byTeam = play.get("team", {}).get("triCode", None)
         homeTeam = game_info["homeTeam"]
@@ -92,6 +105,7 @@ class JsonParser:
 
         row_data["coordinateX"] = coordinateX
         row_data["coordinateY"] = coordinateY
+        row_data['winTeam'] = win_team
 
         self.populate_event_specific_data(play, row_data)
 
