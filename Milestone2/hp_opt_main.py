@@ -28,9 +28,19 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
     print(dict(cfg))
 
     COMET_EXPERIMENT = Experiment(
-        project_name=f'{MODEL_CONFIG.model_type}_single_training',
+        project_name=f'{MODEL_CONFIG.model_type}_hp_opt',
         workspace='nhl-project',
     )
+    MODEL_TYPE = MODEL_CONFIG.model_type
+
+    now_date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    OUTPUT_DIR = (
+        Path(os.getenv("TRAINING_ARTIFACTS_PATH"))
+        / f'hyp_opt_{MODEL_TYPE}'
+        / now_date
+    )
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
 
     COMET_EXPERIMENT.log_parameters(dict(cfg), prefix='HYDRA_')
 
@@ -41,9 +51,9 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
     TRAIN_TEST_SPLIT_CONDITION = cfg.data_pipeline.predicate_train_test_split
     LOAD_FROM_EXISTING_FEATURE_ENG_DATA = cfg.data_pipeline.load_engineered_data_from
 
-    from utils.data import init_data_for_experiment
+    from utils.data import init_data_for_isgoal_classification_experiment
 
-    DATA_PREPROCESSOR_OBJ, DATA_FEATURE_ENG_OBJ = init_data_for_experiment(
+    DATA_PREPROCESSOR_OBJ, DATA_FEATURE_ENG_OBJ = init_data_for_isgoal_classification_experiment(
         RAW_DATA_PATH = PATH_RAW_CSV,
         DATA_PIPELINE_CONFIG = DATA_PIPELINE_CONFIG,
         version = FEATURE_ENG_VERSION,
@@ -52,15 +62,33 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
         load_engineered_data_from = LOAD_FROM_EXISTING_FEATURE_ENG_DATA,
         logger = logger,
     )
+
+
+    # =================================Task-Specific (Classification Prob goal) data pre-proc=================================
+    # ================== eventType only SHOT | GOAL
+    logger.info('SUBSETTING data TO SHOT | GOAL eventType')
+    idx_train = DATA_PREPROCESSOR_OBJ.X_train.query("eventType == 'SHOT' | eventType == 'GOAL'").index
+    idx_test = DATA_PREPROCESSOR_OBJ.X_test.query("eventType == 'SHOT' | eventType == 'GOAL'").index
+    
+    logger.info(f"\t Before subsetting : {DATA_PREPROCESSOR_OBJ.X_train.shape} rows in train set")
+    DATA_PREPROCESSOR_OBJ.X_train = DATA_PREPROCESSOR_OBJ.X_train[DATA_PREPROCESSOR_OBJ.X_train.index.isin(idx_train)]
+    DATA_PREPROCESSOR_OBJ.y_train = DATA_PREPROCESSOR_OBJ.y_train[DATA_PREPROCESSOR_OBJ.y_train.index.isin(idx_train)]
+    logger.info(f"\t After subsetting : {DATA_PREPROCESSOR_OBJ.X_train.shape} rows in train set")
+    
+    logger.info(f"\t Before subsetting : {DATA_PREPROCESSOR_OBJ.X_test.shape} rows in test set")
+    DATA_PREPROCESSOR_OBJ.X_test = DATA_PREPROCESSOR_OBJ.X_test[DATA_PREPROCESSOR_OBJ.X_test.index.isin(idx_test)]
+    DATA_PREPROCESSOR_OBJ.y_test = DATA_PREPROCESSOR_OBJ.y_test[DATA_PREPROCESSOR_OBJ.y_test.index.isin(idx_test)]
+    logger.info(f"\t After subsetting : {DATA_PREPROCESSOR_OBJ.X_test.shape} rows in test set")
+
     
     CV_index_generator  = DATA_PREPROCESSOR_OBJ._split_data()
 
     train_index, val_index = CV_index_generator.__next__()
-    X_train = DATA_PREPROCESSOR_OBJ.X_train.iloc[train_index, :]['distanceToGoal']
+    X_train = DATA_PREPROCESSOR_OBJ.X_train.iloc[train_index, :]
     y_train = DATA_PREPROCESSOR_OBJ.y_train.iloc[train_index]
-    X_val = DATA_PREPROCESSOR_OBJ.X_train.iloc[val_index, :]['distanceToGoal']
+    X_val = DATA_PREPROCESSOR_OBJ.X_train.iloc[val_index, :]
     y_val = DATA_PREPROCESSOR_OBJ.y_train.iloc[val_index]
-    X_test = DATA_PREPROCESSOR_OBJ.X_test['distanceToGoal']
+    X_test = DATA_PREPROCESSOR_OBJ.X_test
     y_test = DATA_PREPROCESSOR_OBJ.y_test
 
     # =================================Optimizer Run==========================================================
@@ -69,16 +97,6 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
     opt = comet_ml.Optimizer(
         OmegaConf.to_object(OPTIMIZER_CONF),
     )
-
-    MODEL_TYPE = MODEL_CONFIG.model_type
-
-    now_date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    OUTPUT_DIR = (
-        Path(os.getenv("TRAINING_ARTIFACTS_PATH"))
-        / f'hyp_opt_{MODEL_TYPE}'
-        / now_date
-    )
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # we track the best model
     BEST_MODEL = {
@@ -127,7 +145,6 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
                 model=TRAINED_CLASSIFIER,
                 overwrite=True,
             )
-
 
         experiment.log_metrics(VAL_METRICS, prefix='val_')
         experiment.log_metric('val_roc_auc_score', SCORE)
