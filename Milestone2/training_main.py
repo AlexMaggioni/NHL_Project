@@ -38,10 +38,11 @@ def run_experiment(cfg: DictConfig, logger) -> None:
     )
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+    EXP_NAME = f"{'BASELINE' if MODEL_CONFIG.run_with_default_args else ''}{now_date.replace('_','')}{'distAngle' if cfg.SUBSET_TO_ANGLE_DIST else 'all'}Feat".zfill(33)
     COMET_EXPERIMENT = Experiment(
         project_name=f'{MODEL_CONFIG.model_type}_single_training',
         workspace='nhl-project',
-        experiment_key=f"{now_date.replace('_','')}{'distAngle' if cfg.SUBSET_TO_ANGLE_DIST else 'all'}Feat".zfill(33),
+        experiment_key=EXP_NAME,
     )
 
     COMET_EXPERIMENT.log_parameters(dict(cfg), prefix='HYDRA_')

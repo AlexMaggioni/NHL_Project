@@ -202,7 +202,6 @@ if __name__ == '__main__':
 
     data = pd.read_csv("clean_data.csv")
     data = data[(data['gameId']==2016020001) & (data['period']==1)][['rinkSide', 'coordinateX', 'coordinateY', 'periodTime']]
-    import pdb; pdb.set_trace()
     transformed_coords = unify_coordinates_referential(data)
     plot_referential_differences(data,transformed_coords)
 
