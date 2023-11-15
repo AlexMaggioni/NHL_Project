@@ -54,6 +54,26 @@ def create_model(
             **kwargs_init_model
         )
 
+    if MODEL_CONFIG.model_type == "MLPClassifier":
+        from sklearn.neural_network import MLPClassifier
+        logger.info(f"Creating {MODEL_CONFIG.model_type}")
+
+        # Define the initialization parameters for MLPClassifier
+        kwargs_init_model = {
+            'hidden_layer_sizes': MODEL_CONFIG.hidden_layer_sizes,
+            'alpha': MODEL_CONFIG.alpha,
+            'activation': MODEL_CONFIG.activation,
+            'solver': MODEL_CONFIG.solver,
+            'batch_size': MODEL_CONFIG.batch_size,
+            'shuffle': MODEL_CONFIG.shuffle,
+            'early_stopping': MODEL_CONFIG.early_stopping,
+            'epsilon': MODEL_CONFIG.epsilon,
+            'n_iter_no_change': MODEL_CONFIG.n_iter_no_change,
+        }
+
+        # Create the MLPClassifier instance
+        classifier = MLPClassifier(**kwargs_init_model)
+
     return classifier
 
 def train_classifier_model(
