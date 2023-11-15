@@ -189,12 +189,13 @@ def plotPerfModel(
     proportionGoalPercentileCurve: bool,
     calibrationCurve: bool,
     COMET_EXPERIMENT: Experiment = None,
+    fn_info: str = None,
 ) -> List[Path]:
     outputDir.mkdir(parents=True, exist_ok=True)
 
     res_output = []
     if rocCurve:
-        outputFile = outputDir / "ROC_curves.png"
+        outputFile = outputDir / f"ROC_curves_{fn_info}.png"
         plotRocCurves(
             predictionsTest=predictionsTest,
             yTest=yTest,
@@ -204,7 +205,7 @@ def plotPerfModel(
         res_output.append(outputFile)
 
     if ratioGoalPercentileCurve:
-        outputFile = outputDir / "ratio_goal_percentile_curves.png"
+        outputFile = outputDir / f"ratio_goal_percentile_curves_{fn_info}.png"
         plotCombinedGoalRates(
             predictionsTest=predictionsTest,
             yTest=yTest,
@@ -214,7 +215,7 @@ def plotPerfModel(
         res_output.append(outputFile)
 
     if proportionGoalPercentileCurve:
-        outputFile = outputDir / "proportion_goal_percentile_curves.png"
+        outputFile = outputDir / f"proportion_goal_percentile_curves_{fn_info}.png"
         plotCumulativeGoals(
             predictionsTest=predictionsTest,
             yTest=yTest,
@@ -224,7 +225,7 @@ def plotPerfModel(
         res_output.append(outputFile)
     
     if calibrationCurve:
-        outputFile = outputDir / "calibration_curves.png"
+        outputFile = outputDir / f"calibration_curves_{fn_info}.png"
         plotCalibrationCurves(
             predictionsTest=predictionsTest,
             yTest=yTest,

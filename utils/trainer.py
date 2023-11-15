@@ -77,6 +77,8 @@ def train_and_eval(
         y=y_val,
         y_pred=y_val_preds,
         title_model=title,
+        info="val",
+        logger=logger,
         COMET_EXPERIMENT=COMET_EXPERIMENT,
     )
 
@@ -89,6 +91,7 @@ def train_and_eval(
             title_model=title,
             logger=logger,
             gameType_is_feat = 'gameType' in X_train.columns,
+            COMET_EXPERIMENT=COMET_EXPERIMENT,
         )
         STATS_EXPERIMENT[title].update(res_test)
 
@@ -141,6 +144,7 @@ def eval_on_test_set(
     title_model,
     logger,
     gameType_is_feat : bool,
+    COMET_EXPERIMENT,
 ):
     if "gameType" not in X_test.columns or X_test["gameType"].dtype != "int64":
         raise ValueError(f"X_test should have a column named 'gameType'")
@@ -161,6 +165,9 @@ def eval_on_test_set(
         y=y_test_playoff,
         y_pred=preds_playoff,
         title_model=title_model,
+        info = "test_playoffs",
+        logger = logger,
+        COMET_EXPERIMENT=COMET_EXPERIMENT,
     )
 
     res['test_playoffs']={            
@@ -184,6 +191,9 @@ def eval_on_test_set(
         y=y_test_reg,
         y_pred=preds_reg,
         title_model=title_model,
+        info = "test_regularSeason",
+        logger = logger,
+        COMET_EXPERIMENT=COMET_EXPERIMENT,
     )
 
     res['test_regular_season']={

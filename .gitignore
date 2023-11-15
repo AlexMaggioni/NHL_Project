@@ -8,3 +8,4 @@ outputs/
 blog_website/Gemfile.lock
 training_artifacts/
 multirun/
+tesytest.py

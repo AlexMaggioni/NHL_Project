@@ -213,7 +213,9 @@ def run_experiment(cfg: DictConfig, logger) -> None:
                 proportionGoalPercentileCurve=True,
                 calibrationCurve=True,
                 COMET_EXPERIMENT=COMET_EXPERIMENT,
+                fn_info = f'{split}',
             )
+            OUTPUT_DIR = (OUTPUT_DIR).parent
 
 @hydra.main(
     version_base=None, config_path=os.getenv("YAML_CONF_DIR"), config_name="training_main_conf"
