@@ -1,6 +1,6 @@
 model_type: XGBoostClassifier
 
-run_with_default_args: False
+run_with_default_args: True
 
 learning_rate : 0.01
 

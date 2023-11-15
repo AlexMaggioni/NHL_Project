@@ -11,5 +11,7 @@ defaults:
 # trials: int (optional, default 1) number of trials per parameter set to test.
 trials: 1
 
+hold_out_test : True
+
 # boolean (optional, default 1) verbosity level where 0 means no output, and 1 (or greater) means to show more detail.
 verbose: 1

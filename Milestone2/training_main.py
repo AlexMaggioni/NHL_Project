@@ -17,6 +17,7 @@ from utils.comet_ml import log_data_splits_to_comet
 from utils.misc import init_logger, verify_dotenv_file
 from utils.model import train_classifier_model
 from utils.data import init_data_for_isgoal_classification_experiment
+from utils.trainer import train_and_eval
 
 
 verify_dotenv_file(Path(__file__).parent.parent)
@@ -38,13 +39,19 @@ def run_experiment(cfg: DictConfig, logger) -> None:
     )
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    EXP_NAME = f"{'BASELINE' if MODEL_CONFIG.run_with_default_args else ''}{now_date.replace('_','')}{'distAngle' if cfg.SUBSET_TO_ANGLE_DIST else 'all'}Feat".zfill(33)
-    COMET_EXPERIMENT = Experiment(
-        project_name=f'{MODEL_CONFIG.model_type}_single_training',
-        workspace='nhl-project',
-        experiment_key=EXP_NAME,
-    )
+    # =================================COMET ML=================================
+    PROJECT_NAME = f'train_{MODEL_CONFIG.model_type}' \
+        + ('_baseline' if cfg.BASELINE_SUBSET_TO_ANGLE_DIST else '') \
+        + ('_CV' if cfg.USE_CROSS_VALIDATION else '') \
+        + ('_noTestSet' if cfg.holdout_test else '') \
+        + ('_featSel' if DATA_PIPELINE_CONFIG.feature_selection_type is not None else '') \
 
+    COMET_EXPERIMENT = Experiment(
+        project_name=PROJECT_NAME,
+        workspace='nhl-project',
+    )
+    EXP_NAME = f"{now_date.replace('_','')}"
+    COMET_EXPERIMENT.set_name(EXP_NAME)
     COMET_EXPERIMENT.log_parameters(dict(cfg), prefix='HYDRA_')
 
     # =================================Prepare Data=================================
@@ -79,154 +86,104 @@ def run_experiment(cfg: DictConfig, logger) -> None:
     DATA_PREPROCESSOR_OBJ.y_test = DATA_PREPROCESSOR_OBJ.y_test[DATA_PREPROCESSOR_OBJ.y_test.index.isin(idx_test)]
     logger.info(f"\t After subsetting : {DATA_PREPROCESSOR_OBJ.X_test.shape} rows in test set")
 
-    if cfg.SUBSET_TO_ANGLE_DIST:
-        logger.info('SUBSETTING data TO ANGLE AND DISTANCE')
-        DATA_PREPROCESSOR_OBJ.X_train = DATA_PREPROCESSOR_OBJ.X_train[['distanceToGoal', 'angleToGoal']]
-        DATA_PREPROCESSOR_OBJ.X_test = DATA_PREPROCESSOR_OBJ.X_test[['distanceToGoal', 'angleToGoal']]
 
+    # =================================Task-Specific (Classification Prob goal) data pre-proc=================================
+    feature_selection_type = DATA_PIPELINE_CONFIG.feature_selection_type
+    if feature_selection_type is not None:
+        if feature_selection_type=='tree_based_feature_selection':
+            logger.info('FEATURE SELECTION : tree_based_feature_selection fit on train and test set')
+            from sklearn.ensemble import ExtraTreesClassifier
+            from sklearn.feature_selection import SelectFromModel
+            clf = ExtraTreesClassifier(n_estimators=50)
+            clf = clf.fit(DATA_PREPROCESSOR_OBJ.X_train, DATA_PREPROCESSOR_OBJ.y_train)
+            logger.info(f"Feature importance : {dict(zip(X.columns,clf.feature_importances_))}")
+            model = SelectFromModel(clf, prefit=True)
 
+            DATA_PREPROCESSOR_OBJ.X_train = model.transform(DATA_PREPROCESSOR_OBJ.X_train)
+            DATA_PREPROCESSOR_OBJ.X_test = model.transform(DATA_PREPROCESSOR_OBJ.X_test)
+            logger.info(f"Feature selection : {DATA_PREPROCESSOR_OBJ.X_train.shape[1]} features selected")
+        else :
+            raise NotImplementedError(f"feature_selection_type {feature_selection_type} not implemented")
 
     # =================================Train Model=================================
 
-    # for i, (train_index, val_index) in enumerate(CV_index_generator):
-    #     print(f"Fold {i}:")
     CV_index_generator  = DATA_PREPROCESSOR_OBJ._split_data()
-    train_index, val_index = CV_index_generator.__next__()
 
     STATS_EXPERIMENT = {}
-    PATH_GRAPHS_TO_LOG_TO_COMET = []
 
     (OUTPUT_DIR / 'val').mkdir(parents=True, exist_ok=True)
 
-    for features_to_include in [["distanceToGoal"], ["angleToGoal"], ["distanceToGoal", "angleToGoal"]]:
+    if cfg.BASELINE_SUBSET_TO_ANGLE_DIST:
+        for features_to_include in [["distanceToGoal"], ["angleToGoal"], ["distanceToGoal", "angleToGoal"]]:
+            train_index, val_index = CV_index_generator.__next__()
 
-        X_train = DATA_PREPROCESSOR_OBJ.X_train.iloc[train_index,:][features_to_include]
-        y_train = DATA_PREPROCESSOR_OBJ.y_train.iloc[train_index,:]
-        X_val = DATA_PREPROCESSOR_OBJ.X_train.iloc[val_index,:][features_to_include]
-        y_val = DATA_PREPROCESSOR_OBJ.y_train.iloc[val_index,:]
-        X_test = DATA_PREPROCESSOR_OBJ.X_test[features_to_include]
-        y_test = DATA_PREPROCESSOR_OBJ.y_test
+            X_train = DATA_PREPROCESSOR_OBJ.X_train.iloc[train_index,:][features_to_include]
+            y_train = DATA_PREPROCESSOR_OBJ.y_train.iloc[train_index,:]
+            X_val = DATA_PREPROCESSOR_OBJ.X_train.iloc[val_index,:][features_to_include]
+            y_val = DATA_PREPROCESSOR_OBJ.y_train.iloc[val_index,:]
+            X_test = DATA_PREPROCESSOR_OBJ.X_test[features_to_include+['gameType']]
+            y_test = DATA_PREPROCESSOR_OBJ.y_test
 
-        logger.info(f"Training model {MODEL_CONFIG.model_type} with features : {features_to_include}")
+            logger.info(f"Training model {MODEL_CONFIG.model_type} with features : {features_to_include}")
 
-        KEY_DICT_STAT = '+'.join(features_to_include)
+            MODEL_KEY = f"{MODEL_TYPE}_{'+'.join(features_to_include)}"
 
-        print('Train ',X_train.describe())
-        print('Val ', X_val.describe())
-
-        logger.info("Logging to comet_ml the data splits")
-        log_data_splits_to_comet(
-            COMET_EXPERIMENT = COMET_EXPERIMENT,
-            X_train = X_train,
-            y_train = y_train,
-            X_val = X_val,
-            y_val = y_val,
-            X_test = X_test,
-            y_test = y_test,
-            title = '+'.join(features_to_include),
-            logger = logger
-        )
-
-        logger.info("Training model")
-        TRAINED_CLASSIFIER, training_duration = train_classifier_model(
-            X_train = X_train,
-            y_train = y_train,
-            X_val = X_val,
-            y_val = y_val,
-            DATA_PIPELINE_CONFIG = DATA_PIPELINE_CONFIG,
-            MODEL_CONFIG = MODEL_CONFIG,
-            logger = logger,
-        )
-
-        with tempfile.NamedTemporaryFile() as fp:
-            if MODEL_CONFIG.model_type == "LogisticRegression":
-                dump(TRAINED_CLASSIFIER, fp.name)
-            if MODEL_CONFIG.model_type == "XGBoostClassifier":
-                TRAINED_CLASSIFIER.save_model(fp.name+'.json')
-
-            COMET_EXPERIMENT.log_model(
-                name=f'{MODEL_TYPE}_fit_on_{"+".join(features_to_include)}',
-                file_or_folder=fp.name,
-                metadata=OmegaConf.to_container(MODEL_CONFIG),
+            RES_EXP = train_and_eval(
+                X_train = X_train,
+                y_train = y_train,
+                X_val = X_val,
+                y_val = y_val,
+                logger = logger,
+                COMET_EXPERIMENT = COMET_EXPERIMENT,
+                title = MODEL_KEY,
+                DATA_PIPELINE_CONFIG = DATA_PIPELINE_CONFIG,
+                MODEL_CONFIG = MODEL_CONFIG,
+                OUTPUT_DIR = OUTPUT_DIR,
+                X_test = None if cfg.holdout_test else X_test,
+                y_test = None if cfg.holdout_test else y_test,
+                USE_SAMPLE_WEIGHTS = cfg.USE_SAMPLE_WEIGHTS,
             )
-        
-        # evaluate accuracy on val set
-        y_val_preds = TRAINED_CLASSIFIER.predict(X_val)
-        y_val_proba_preds = TRAINED_CLASSIFIER.predict_proba(X_val)
-        
-        logger.info("Assessing model performance on val split")
-        from utils.metrics import assess_classifier_perf
-        VAL_METRICS = assess_classifier_perf(
-            y=y_val,
-            y_pred=y_val_preds,
-            title_model=f'{MODEL_TYPE} trained on {"+".join(features_to_include)}',
-        )
 
-        COMET_EXPERIMENT.log_confusion_matrix(
-            labels=['NO_GOAL','GOAL'],
-            matrix=VAL_METRICS['conf_matrix'],
-            file_name=f"confusion_matrix_val_set_{KEY_DICT_STAT}.png",
-        )
+            STATS_EXPERIMENT.update(RES_EXP)
+    else :
+        if cfg.USE_CROSS_VALIDATION: 
+            GENERATOR_IDX = CV_index_generator
+        else:
+            GENERATOR_IDX = [CV_index_generator.__next__()]
+        for i, (train_index, val_index) in GENERATOR_IDX:
+            print(f"Cross-Valisation Fold {i}:")
 
-        logger.info("Assessing model performance on test split")
-        TEST_METRICS = assess_classifier_perf(
-            y=y_test,
-            y_pred=TRAINED_CLASSIFIER.predict(X_test),
-            title_model=f'{MODEL_TYPE} trained on {"+".join(features_to_include)}',
-        )
+            X_train = DATA_PREPROCESSOR_OBJ.X_train.iloc[train_index,:]
+            y_train = DATA_PREPROCESSOR_OBJ.y_train.iloc[train_index,:]
+            X_val = DATA_PREPROCESSOR_OBJ.X_train.iloc[val_index,:]
+            y_val = DATA_PREPROCESSOR_OBJ.y_train.iloc[val_index,:]
+            X_test = DATA_PREPROCESSOR_OBJ.X_test
+            y_test = DATA_PREPROCESSOR_OBJ.y_test
 
-        COMET_EXPERIMENT.log_confusion_matrix(
-            labels=['NO_GOAL','GOAL'],
-            matrix=TEST_METRICS['conf_matrix'],
-            file_name=f"confusion_matrix_test_set_{KEY_DICT_STAT}.png",
-        )
-        
+            MODEL_KEY = MODEL_TYPE
+            if feature_selection_type:
+                MODEL_KEY += '_withFeatureSelection'
 
-        # DONT MODIFY NAME OF THE KEYS IN THIS DICT ---> hard-coded IN OTHER FILES
-        STATS_EXPERIMENT[KEY_DICT_STAT] = {
-            'model': TRAINED_CLASSIFIER,
-            'training_time': training_duration,
-            'val':{
-                'data' : (X_val, y_val),
-                'proba_preds' : y_val_proba_preds,
-                'preds' : y_val_preds,
-                'performance' : VAL_METRICS
-            },
-            'test':{
-                'data' : (X_test, y_test),
-                'proba_preds' : TRAINED_CLASSIFIER.predict_proba(X_test),
-                'preds' : TRAINED_CLASSIFIER.predict(X_test),
-                'performance' : TEST_METRICS
-            }
-        }
+            RES_EXP = train_and_eval(
+                X_train = X_train,
+                y_train = y_train,
+                X_val = X_val,
+                y_val = y_val,
+                logger = logger,
+                COMET_EXPERIMENT = COMET_EXPERIMENT,
+                title = MODEL_KEY,
+                DATA_PIPELINE_CONFIG = DATA_PIPELINE_CONFIG,
+                MODEL_CONFIG = MODEL_CONFIG,
+                OUTPUT_DIR = OUTPUT_DIR,
+                X_test = None if cfg.holdout_test else X_test,
+                y_test = None if cfg.holdout_test else y_test,
+            )
 
-        if MODEL_CONFIG.model_type == "XGBoostClassifier":
-            STATS_EXPERIMENT[KEY_DICT_STAT]['val']['results'] = TRAINED_CLASSIFIER.evals_result()
-
-            from utils.plot import plot_XGBOOST_feat_importance, plot_XGBOOST_losses
-            
-            model_title = f'{MODEL_CONFIG.model_type}_{KEY_DICT_STAT}'
-
-            logger.info("Plotting XGBOOST losses validation for model {model_title}")
-            PATH_GRAPHS_TO_LOG_TO_COMET.extend(plot_XGBOOST_losses(
-                OUTPUT_DIR = OUTPUT_DIR/ 'val',
-                results=STATS_EXPERIMENT[KEY_DICT_STAT]['val']['results'],
-                title=model_title,
-            ))
-
-            if getattr(TRAINED_CLASSIFIER, 'importance_type', None) :
-                logger.info("Plotting XGBOOST feature importance for model {model_title}")
-                PATH_GRAPHS_TO_LOG_TO_COMET.extend(plot_XGBOOST_feat_importance(
-                    OUTPUT_DIR = OUTPUT_DIR/ 'val',
-                    COMET_EXPERIMENT = COMET_EXPERIMENT,
-                    logger = logger,
-                    classifier = TRAINED_CLASSIFIER,
-                    X_train_samples=X_train.sample(1000, random_state=DATA_PIPELINE_CONFIG.seed),
-                ))
+            STATS_EXPERIMENT.update(RES_EXP)
 
     # _______________________ Training and Validation finished
 
-    # Saving MODELS & EXPERIMENTS to disk and logging to comet_ml
+    # ====================== BIG PICKLE FILE : STATS_EXPERIMENT CONTAINING MODELS, DATA, PREDS, METRICS
     import pickle
     PATH_EXPERIMENT_ASSET = OUTPUT_DIR / "STATS_EXPERIMENT.pkl"
     logger.info(f"Saving models and experiment to disk at {PATH_EXPERIMENT_ASSET}")
@@ -234,34 +191,29 @@ def run_experiment(cfg: DictConfig, logger) -> None:
         pickle.dump(STATS_EXPERIMENT, f)
     COMET_EXPERIMENT.log_asset(str(PATH_EXPERIMENT_ASSET), "STATS_EXPERIMENT.pkl")
 
-    # PLOTTING GRAPHS : LOSSES, ROC, RATIO-GOAL, CUMUL-GOAL, CALIBRATION CURVES
-    OUTPUT_DIR = OUTPUT_DIR / 'val'
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    
-    from utils.plot import plotPerfModel
-    logger.info(f"Plotting prob-oriented performance curves at {OUTPUT_DIR} on val set")
-    PATH_GRAPHS_TO_LOG_TO_COMET.extend(plotPerfModel(
-        predictionsTest = {
-            f'{MODEL_TYPE} trained on {k}' : d['val']['proba_preds'] for k,d in STATS_EXPERIMENT.items()
-        },
-        yTest = y_val.to_numpy(),
-        outputDir = OUTPUT_DIR,
-        rocCurve = True,
-        ratioGoalPercentileCurve = True,
-        proportionGoalPercentileCurve = True,
-        calibrationCurve = True,
-    ))
+    if not cfg.USE_CROSS_VALIDATION:
+        # ====================== PLOT PROB-ORIENTED PERFORMANCE CURVES : ROC, RATIO-GOAL, CUMUL-GOAL, CALIBRATION CURVES
+        split_to_plot = [('val', y_val)]
+        if not cfg.holdout_test:
+            split_to_plot.append(('test_playoffs', STATS_EXPERIMENT[MODEL_KEY]['test_playoffs']['data'][1]))
+            split_to_plot.append(('test_regular_season', STATS_EXPERIMENT[MODEL_KEY]['test_regular_season']['data'][1]))
+        
+        for split, y_true in split_to_plot:
+            OUTPUT_DIR = OUTPUT_DIR / split
+            OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+            logger.info(f"\t Plotting prob-oriented performance curves at {OUTPUT_DIR} on {split} set")
 
-    logger.info('List of plots that will be logged to comet_ml')
-    print(PATH_GRAPHS_TO_LOG_TO_COMET)
-
-    for p in PATH_GRAPHS_TO_LOG_TO_COMET:
-        try:
-            COMET_EXPERIMENT.log_asset(str(p), p.stem)
-        except comet_ml.exceptions.APIError as e:
-            logger.warning(f"Error while logging artifact {p} : {e}")
-
-
+            from utils.plot import plotPerfModel
+            plotPerfModel(
+                predictionsTest={title_model : d[split]['proba_preds'] for title_model, d in STATS_EXPERIMENT.items()},
+                yTest=y_true.to_numpy(),
+                outputDir=OUTPUT_DIR,
+                rocCurve=True,
+                ratioGoalPercentileCurve=True,
+                proportionGoalPercentileCurve=True,
+                calibrationCurve=True,
+                COMET_EXPERIMENT=COMET_EXPERIMENT,
+            )
 
 @hydra.main(
     version_base=None, config_path=os.getenv("YAML_CONF_DIR"), config_name="training_main_conf"

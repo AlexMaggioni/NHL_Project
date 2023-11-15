@@ -38,9 +38,9 @@ def create_model(
             'num_class':len(DATA_PIPELINE_CONFIG.label)+1,
             'reg_lambda':MODEL_CONFIG.reg_lambda,
             'learning_rate':MODEL_CONFIG.learning_rate,
-            'min_child_weight ': MODEL_CONFIG.min_child_weight,
-            'subsample ': MODEL_CONFIG.subsample,
-            'colsample_bytree ': MODEL_CONFIG.colsample_bytree,
+            'min_child_weight': MODEL_CONFIG.min_child_weight,
+            'subsample': MODEL_CONFIG.subsample,
+            'colsample_bytree': MODEL_CONFIG.colsample_bytree,
             'eval_metric':['merror','mlogloss'],
             'seed':DATA_PIPELINE_CONFIG.seed,
             'importance_type':MODEL_CONFIG.importance_type,
@@ -64,6 +64,7 @@ def train_classifier_model(
         DATA_PIPELINE_CONFIG : DictConfig,
         MODEL_CONFIG : DictConfig,
         logger,
+        USE_SAMPLE_WEIGHTS : bool,
 ):
     
     CLS_MODEL = create_model(
@@ -72,19 +73,23 @@ def train_classifier_model(
         logger = logger,
     )
 
-    from sklearn.utils.class_weight import compute_sample_weight
-
-    # balancing 'target' class weights
-    sample_weights = compute_sample_weight(
-        class_weight='balanced',
-        y=y_train
-    )
 
     kwargs_fit = {
         'X' : X_train,
         'y' : y_train,
-        'sample_weight' : sample_weights,
     }
+
+    if USE_SAMPLE_WEIGHTS:
+
+        from sklearn.utils.class_weight import compute_sample_weight
+
+        # balancing 'target' class weights
+        sample_weights = compute_sample_weight(
+            class_weight='balanced',
+            y=y_train
+        )
+
+        kwargs_fit['sample_weight'] = sample_weights
 
     if MODEL_CONFIG.model_type == "LogisticRegression":
         if y_train.ndim == 2:
@@ -94,12 +99,16 @@ def train_classifier_model(
     if MODEL_CONFIG.model_type == "XGBoostClassifier":
         # TODO : MAKE SUPPORT OF ARGS FROM
         # https://xgboost.readthedocs.io/en/stable/python/python_api.html#xgboost.XGBClassifier.fit
+        import xgboost as xdg
+        if 'gameDate' in X_train.columns :
+            X_train['gameDate'] = X_train['gameDate'].astype('float')
+            X_val['gameDate'] = X_val['gameDate'].astype('float')
+        if 'byTeam' in X_train.columns :
+            X_train['byTeam'] = X_train['byTeam'].astype('float')
+            X_val['byTeam'] = X_val['byTeam'].astype('float')
 
-        # time_callback = xgb.callback.TrainingSpeed()
-        # early_stopping = xgb.callback.EarlyStopping(rounds=10, save_best=True, maximize=False, verbose=True)  
-        # callbacks = [time_callback, early_stopping]
-        # callbacks = [time_callback]
-        import pdb; pdb.set_trace()
+        # X_train = xdg.DMatrix(X_train, label=y_train,)
+        # X_val = xdg.DMatrix(X_val, label=y_val,)
         kwargs_fit['verbose'] = 0
         kwargs_fit['eval_set'] = [(X_train, y_train), (X_val, y_val)]
     

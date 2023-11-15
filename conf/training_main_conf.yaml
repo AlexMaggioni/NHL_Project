@@ -3,10 +3,13 @@ defaults:
   - data_pipeline:
       - feature_engineering # will resolve to content in ./data_pipeline/feature_engineering.yaml
       - data_preprocessing # will resolve to content in ./data_pipeline/data_preprocessing.yaml
-  - model : logistic_regression # will resolve to content in ./model/logistic_regression.yaml
+      - feature_selection # will resolve to content in ./data_pipeline/feature_selection.yaml
+  - model : xgboost # will resolve to content in ./model/logistic_regression.yaml
 
 # TODO : PROVIDE A KEY TO RESUME TRAINING FROM A PREVIOUS CHECKPOINT/COMET EXPERIMENT
 # resume_from_
 
-
-SUBSET_TO_ANGLE_DIST : True
+holdout_test: False
+BASELINE_SUBSET_TO_ANGLE_DIST : True
+USE_CROSS_VALIDATION : False
+USE_SAMPLE_WEIGHTS : False # for class imbal ance

@@ -8,7 +8,7 @@ algorithm: bayes
 spec: 
   maxCombo: 0
   objective: maximize
-  metric: accuracy
+  metric: val_roc_auc_score
   minSampleSize: 100
   retryLimit: 20
   retryAssignLimit: 0
@@ -53,6 +53,12 @@ parameters:
     max: 10
 
   colsample_bytree :
+    type: float
+    # scaling_type: uniform
+    min: 0.5
+    max: 1
+  
+  subsample :
     type: float
     # scaling_type: uniform
     min: 0.5

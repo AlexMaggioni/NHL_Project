@@ -188,11 +188,11 @@ def plotPerfModel(
     ratioGoalPercentileCurve: bool,
     proportionGoalPercentileCurve: bool,
     calibrationCurve: bool,
+    COMET_EXPERIMENT: Experiment = None,
 ) -> List[Path]:
     outputDir.mkdir(parents=True, exist_ok=True)
 
     res_output = []
-
     if rocCurve:
         outputFile = outputDir / "ROC_curves.png"
         plotRocCurves(
@@ -233,9 +233,13 @@ def plotPerfModel(
         print(f'Calibration curves saved at {outputFile}')
         res_output.append(outputFile)
     
+    if COMET_EXPERIMENT is not None:
+        for p in res_output:
+            COMET_EXPERIMENT.log_image(str(p))
+
     return res_output
 
-def plot_XGBOOST_losses(results, OUTPUT_DIR, title) -> List[Path]:
+def plot_XGBOOST_losses(results, OUTPUT_DIR, title, COMET_EXPERIMENT=None) -> List[Path]:
 
     res = []
 
@@ -250,8 +254,11 @@ def plot_XGBOOST_losses(results, OUTPUT_DIR, title) -> List[Path]:
         ax.legend()
         plt.ylabel('Losses/Error')
         plt.title(f'{title} {split} losses/error')
-        plt.savefig(OUTPUT_DIR / f'{title}_{split}_losses.png')
-        res.append(OUTPUT_DIR / f'{title}_{split}_losses.png')
+        path_output = OUTPUT_DIR / f'{title}_{split}_losses.png'
+        plt.savefig(path_output)
+        res.append(path_output)
+        if COMET_EXPERIMENT is not None:
+            COMET_EXPERIMENT.log_asset(str(path_output), path_output.stem)
 
     return res
 

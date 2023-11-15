@@ -1,5 +1,5 @@
 from itertools import cycle
-from typing import List, Tuple
+from typing import Dict, List, Tuple, Union
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
 import numpy as np
@@ -196,7 +196,14 @@ def verify_dotenv_file(position_of_execution : Path):
     else:
         raise RuntimeError(f"COULD NOT LOAD THE {file_dot_env_to_load} FILE FROM {position_of_execution}")
 
+def collide_keys(two_level_nested_dict : Dict[str,Dict[str,Union[int,float]]]):
 
+    res = {}
+    for k,v in two_level_nested_dict.items():
+        for k_,v_ in v.items():
+            res[f'{k}_{k_}'] = v_
+
+    return res
 
 if __name__ == '__main__':
 

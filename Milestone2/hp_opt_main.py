@@ -80,6 +80,9 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
     DATA_PREPROCESSOR_OBJ.y_test = DATA_PREPROCESSOR_OBJ.y_test[DATA_PREPROCESSOR_OBJ.y_test.index.isin(idx_test)]
     logger.info(f"\t After subsetting : {DATA_PREPROCESSOR_OBJ.X_test.shape} rows in test set")
 
+    logger.info("DROPPING eventType column")
+    DATA_PREPROCESSOR_OBJ.X_train = DATA_PREPROCESSOR_OBJ.X_train.drop(columns=['eventType'])
+    DATA_PREPROCESSOR_OBJ.X_test = DATA_PREPROCESSOR_OBJ.X_test.drop(columns=['eventType'])
     
     CV_index_generator  = DATA_PREPROCESSOR_OBJ._split_data()
 
@@ -132,6 +135,7 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
         )
 
         SCORE = roc_auc_score(y_val, TRAINED_CLASSIFIER.predict_proba(X_val)[:, 1])
+
         if SCORE > BEST_MODEL['score']:
             logger.info(f"New best model found with score : {SCORE} saved at {OUTPUT_DIR / f'{now_date}_{MODEL_CONFIG.model_type}__{i}'}")
             BEST_MODEL['score'] = SCORE
@@ -141,9 +145,12 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
             TRAINED_CLASSIFIER.save_model(BEST_MODEL['path'])
 
             experiment.log_model(
-                model_name=f'{MODEL_CONFIG.model_type}',
-                model=TRAINED_CLASSIFIER,
-                overwrite=True,
+                name=f'{MODEL_CONFIG.model_type}__{i}__{SCORE}',
+                file_or_folder=BEST_MODEL['path'],
+                metadata={
+                    **MERGED_DICT,
+                    'roc_auc_score':SCORE,
+                }
             )
 
         experiment.log_metrics(VAL_METRICS, prefix='val_')
@@ -151,6 +158,8 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
         
         # Optionally, end the experiment:
         experiment.end()
+
+    #TODO: log best model to comet avec le nom de lexp comme BEST
 
 @hydra.main(
     version_base=None, config_path=os.getenv("YAML_CONF_DIR"), config_name="hp_opt_main_conf"

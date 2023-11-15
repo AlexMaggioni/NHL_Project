@@ -40,33 +40,51 @@ def log_feature_eng_obj(
     
 def log_data_splits_to_comet(
         COMET_EXPERIMENT : Experiment,
-        X_train : pd.DataFrame,
-        y_train : pd.Series,
-        X_val : pd.DataFrame,
-        y_val : pd.Series,
-        X_test : pd.DataFrame,
-        y_test : pd.Series,
         title : str,
         logger,
+        X_train : pd.DataFrame = None,
+        y_train : pd.Series = None,
+        X_val : pd.DataFrame = None,
+        y_val : pd.Series = None,
+        X_test : pd.DataFrame = None,
+        y_test : pd.Series = None,
 ) -> None:
 
-    logger.info(f"Logging train splits to comet")
-    COMET_EXPERIMENT.log_dataframe_profile(
-        X_train, f"train_set_features__{title}", minimal=True)
+    if X_train is not None:
+        logger.info(f"Logging train features to comet")
+        COMET_EXPERIMENT.log_dataframe_profile(
+            X_train, f"train_set_features__{title}", minimal=True)
+    if y_train is not None:
+        logger.info(f"Logging train labels to comet")
+        COMET_EXPERIMENT.log_dataframe_profile(
+            y_train, f"train_set_label__{title}", minimal=True)
     
-    COMET_EXPERIMENT.log_dataframe_profile(
-        y_train, f"train_set_label__{title}", minimal=True)
+    if X_val is not None:
+        logger.info(f"Logging val features to comet")
+        COMET_EXPERIMENT.log_dataframe_profile(
+            X_val, f"val_set_features__{title}", minimal=True)
     
-    logger.info(f"Logging val splits to comet")
-    COMET_EXPERIMENT.log_dataframe_profile(
-        X_val, f"val_set_features__{title}", minimal=True)
+    if y_val is not None:
+        logger.info(f"Logging val labels to comet")
+        COMET_EXPERIMENT.log_dataframe_profile(
+            y_val, f"val_set_label__{title}", minimal=True)
     
-    COMET_EXPERIMENT.log_dataframe_profile(
-        y_val, f"val_set_label__{title}", minimal=True)
-    
-    logger.info(f"Logging test splits to comet")
-    COMET_EXPERIMENT.log_dataframe_profile(
-        X_test, f"test_set_features__{title}", minimal=True)
-    
-    COMET_EXPERIMENT.log_dataframe_profile(
-        y_test, f"test_set_label__{title}", minimal=True)
+    if X_test is not None:
+        logger.info(f"Logging test features to comet")
+        COMET_EXPERIMENT.log_dataframe_profile(
+            X_test, f"test_set_features__{title}", minimal=True)
+
+    if y_test is not None:
+        logger.info(f"Logging test labels to comet")    
+        COMET_EXPERIMENT.log_dataframe_profile(
+            y_test, f"test_set_label__{title}", minimal=True)
+        
+
+def log_metrics_to_comet(
+        COMET_EXPERIMENT : Experiment,
+        title : str,
+        logger,
+        metrics : dict,
+) -> None:
+    logger.info(f"Logging metrics to comet")
+    COMET_EXPERIMENT.log_metrics(metrics, prefix=title)
