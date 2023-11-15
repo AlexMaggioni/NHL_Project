@@ -1,7 +1,7 @@
 ---
 layout: post
 author: Équipe A07
-title: Ingénierie des données II
+title: 4. Ingénierie des données II
 ---
 
 <style>
@@ -31,32 +31,44 @@ title: Ingénierie des données II
 
 </style>
 
-# Caractéristiques Avancées Explorées
+# Introduction 
 
-Voici les caract.ristiques que nous avons développé pour cette section :
+Dans la continuité de notre analyse statistique avancée du hockey, nous avons mis en œuvre une ingénierie des caractéristiques sophistiquée pour mieux comprendre les nuances et les dynamiques du jeu. Cette deuxième partie se concentre sur l'élaboration et l'exploration de variables spécifiques qui nous permettent de déchiffrer plus finement les stratégies, les décisions et les probabilités derrière chaque action sur la glace. Les caractéristiques que nous avons développées sont essentielles pour prédire les issues des tirs et comprendre les comportements des joueurs en fonction de différentes situations de jeu.
 
-- **`distanceToGoal`**: Révèle la distance qui sépare le tireur du but adverse, un prédicteur essentiel de la probabilité de marquer.
-- **`angleToGoal`**: L'angle du tir par rapport au cadre du but, qui influence les chances de succès.
-- **`isGoal`**: Un flag indiquant l'issue ultime de la tentative — but ou pas.
-- **`emptyNet`**: Signale si le gardien est absent, modifiant radicalement les attentes autour du tir.
-- **`periodTimeSeconds`**: Le moment précis de l'événement, converti en une mesure temporelle uniforme.
-- **`lastEventType`**: Le dernier événement avant le tir, contexte clé pour la prise de décision.
-- **`lastCoordinateX`** et **`lastCoordinateY`**: Positionne le jeu juste avant le tir actuel, essentiel pour comprendre le mouvement de la rondelle.
-- **`timeElapsed`**: Le temps écoulé depuis la dernière action, une piste sur l'intensité du jeu.
-- **`distanceFromLastEvent`**: La distance parcourue depuis le dernier événement, illustrant le dynamisme du jeu.
-- **`rebound`**: Indique si le tir suit un rebond, souvent source d'opportunités imprévues.
-- **`changeAngle`**: La différence d'angle par rapport au tir précédent, si c'est un rebond. Un changement significatif peut désorienter le gardien.
-- **`speed`**: Estimation de la vitesse entre deux événements, capturant la vélocité de la séquence.
 
-## Décodage de `elapsedPowerPlay`
+# Caractéristiques avancées explorées
 
-Prenez l'exemple des pénalités consécutives à une bataille sur la glace — un scénario où deux joueurs se voient attribuer une pénalité majeure de 5 minutes. Dans ce cas, bien que chaque équipe se retrouve avec un joueur en moins, il n'y a pas de situation de supériorité numérique car les effectifs restent égaux à 4 contre 4.
+Voici les caractéristiques que nous avons développées pour cette section :
 
-Notre caractéristique `elapsedPowerPlay` ne se contente pas de comptabiliser le temps cumulé des pénalités mais identifie un power play par une différence effective dans le nombre de joueurs sur la glace. Cette distinction est cruciale pour saisir la nature fluide et parfois contradictoire du jeu, où le nombre de joueurs actifs est plus parlant que la simple durée des pénalités.
+- **`distanceToGoal`** : Cette mesure indique la distance entre le tireur et le but adverse. C'est un prédicteur clé de la probabilité de marquer, car les tirs de plus courte distance ont généralement de meilleures chances de succès.
 
-En somme, ces caractéristiques déployées avec soin ouvrent la voie à des analyses poussées et des stratégies affinées, plaçant les données au cœur de la performance sportive.
+- **`angleToGoal`** : L'angle sous lequel le tir est effectué par rapport au cadre du but. Un - angle optimal peut augmenter significativement les chances de marquer.
 
-# Petite commentaire sur le prétraitement des données
+- **`isGoal`** : Un indicateur booléen qui précise si la tentative de tir s'est conclue par un but.
+
+- **`emptyNet`** : Signale si le but est vide au moment du tir. Un but vide change radicalement les attentes autour de la probabilité de marquer.
+
+- **`periodTimeSeconds`** : Le temps précis de l'événement, converti en secondes, offrant une mesure uniforme et précise du timing du jeu.
+
+- **`lastEventType`** : Le dernier événement survenu avant le tir, fournissant un contexte essentiel pour comprendre les décisions prises par les joueurs.
+
+- **`lastCoordinateX` et `lastCoordinateY`** : Les coordonnées de l'action précédant le tir, importantes pour analyser le mouvement de la rondelle et la position des joueurs.
+
+- **`timeElapsed`** : Le temps écoulé depuis la dernière action, offrant des indices sur le rythme et l'intensité du jeu à ce moment précis.
+
+- **`distanceFromLastEvent`** : La distance parcourue par la rondelle depuis le dernier événement, illustrant le dynamisme et la rapidité du jeu.
+
+- **`rebound`** : Indique si le tir suit directement un autre tir, ce qui peut créer des opportunités de marquer imprévues et difficiles à défendre.
+
+- **`changeAngle`** : Mesure la variation d'angle par rapport au tir précédent, en cas de rebond. Un changement d'angle important peut désorienter le gardien et augmenter les chances de marquer.
+
+- **`speed`** : Estime la vitesse entre deux événements, capturant la rapidité et l'intensité de l'action.
+
+- **`elapsedPowerPlay`** : Cette métrique ne se limite pas à mesurer le temps total des pénalités, mais identifie également un avantage numérique réel en prenant en compte la différence effective de joueurs sur la glace. Prenez l'exemple des pénalités consécutives à une bataille sur la glace — un scénario où deux joueurs se voient attribuer une pénalité majeure de 5 minutes. Dans ce cas, bien que chaque équipe se retrouve avec un joueur en moins, il n'y a pas de situation de supériorité numérique car les effectifs restent égaux à 4 contre 4. Ainsi, elapsedPowerPlay offre une perspective plus précise des avantages numériques, reflétant fidèlement les dynamiques changeantes du jeu.
+
+- **`homeSkaters` et `awaySkaters`** : Ces deux indicateurs donnent le nombre de joueurs de l'équipe à domicile (home) et de l'équipe adverse (away) présents sur la glace. Ces données sont cruciales pour comprendre la composition de l'équipe et les stratégies déployées en fonction du nombre de joueurs en action.
+
+Ces caractéristiques avancées seront utilisées dans nos modèles à venir. Elles vont nous aider à mieux analyser les données et à améliorer la précision de nos prédictions.
 
 
 

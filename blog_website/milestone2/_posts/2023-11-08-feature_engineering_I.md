@@ -1,7 +1,7 @@
 ---
 layout: post
 author: Équipe A07
-title: Ingénierie des données I
+title: 2. Ingénierie des données I
 ---
 
 <style>
@@ -30,6 +30,10 @@ title: Ingénierie des données I
   }
 
 </style>
+
+# Introduction 
+
+Nous avons réalisé une ingénierie des caractéristiques de base pour créer des métriques spécifiques telles que la distance et l'angle des tirs. Ces métriques sont essentielles pour comprendre en profondeur les dynamiques du jeu et les stratégies des joueurs. Ci-dessous, nous analyserons ces caractéristiques en détail, en examinant leurs impacts sur la fréquence et l'efficacité des tirs, ainsi que sur la probabilité de marquer des buts.
 
 # Analyse du nombre de tirs en fonction de la distance par rapport au but
 
