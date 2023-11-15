@@ -57,7 +57,7 @@ def create_model(
     if MODEL_CONFIG.model_type == "MLPClassifier":
         from sklearn.neural_network import MLPClassifier
         logger.info(f"Creating {MODEL_CONFIG.model_type}")
-
+        
         # Define the initialization parameters for MLPClassifier
         kwargs_init_model = {
             'hidden_layer_sizes': MODEL_CONFIG.hidden_layer_sizes,
@@ -94,6 +94,11 @@ def train_classifier_model(
         logger = logger,
     )
 
+    if MODEL_CONFIG.model_type == "MLPClassifier" or MODEL_CONFIG.model_type == "LogisticRegression":
+        from sklearn.preprocessing import StandardScaler
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_val = scaler.transform(X_val)
 
     kwargs_fit = {
         'X' : X_train,
@@ -110,7 +115,8 @@ def train_classifier_model(
             y=y_train
         )
 
-        kwargs_fit['sample_weight'] = sample_weights
+        if MODEL_CONFIG.model_type != "MLPClassifier":
+            kwargs_fit['sample_weight'] = sample_weights
 
     if MODEL_CONFIG.model_type == "LogisticRegression":
         if y_train.ndim == 2:
@@ -132,7 +138,7 @@ def train_classifier_model(
         # X_val = xdg.DMatrix(X_val, label=y_val,)
         kwargs_fit['verbose'] = 0
         kwargs_fit['eval_set'] = [(X_train, y_train), (X_val, y_val)]
-    
+
     start_time = time.time()
     CLS_MODEL.fit(**kwargs_fit)
     elapsed_time = time.time() - start_time

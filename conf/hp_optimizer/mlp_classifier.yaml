@@ -1,0 +1,48 @@
+# String, indicating the search algorithm to use
+# https://www.comet.com/docs/v2/api-and-sdk/python-sdk/introduction-optimizer/#algorithm
+algorithm: bayes
+
+
+# Dictionary, defining the algorithm-specific specifications
+# https://www.comet.com/docs/v2/api-and-sdk/python-sdk/introduction-optimizer/#spec
+spec: 
+  maxCombo: 0
+  objective: maximize
+  metric: val_roc_auc_score
+  minSampleSize: 100
+  retryLimit: 20
+  retryAssignLimit: 0
+
+
+# Dictionary, defining the parameter distribution space
+# https://www.comet.com/docs/v2/api-and-sdk/python-sdk/introduction-optimizer/#parameters
+parameters:
+
+  n_layer :
+    type: integer
+    min: 1
+    max: 4
+
+  layer1_size :
+    type: integer
+    # scaling_type: uniform
+    min: 5
+    max: 128
+
+  layer2_size :
+    type: integer
+    min: 5
+    max: 128
+
+  layer3_size :
+    type: integer
+    min: 5
+    max: 128
+
+  layer4_size :
+    type: integer
+    min: 5
+    max: 128
+
+# (Optional) String, specifying a personalizable name to associate with this search instance
+name: MLPClassifier Hyperparameter Optimization

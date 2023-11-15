@@ -40,7 +40,7 @@ Cette méthode permet une évaluation initiale des performances potentielles de 
 
 # L'exactitude, une bonne mesure de performance? 
 
-Nous avons mis en place une régression logistique, normalisant les coordonnées pour les aligner dans une direction de jeu commune. Nous nous sommes concentrés sur la distance du tir comme caractéristique principale pour l'un des modèles. Durant la phase d'entraînement, le jeu de données a été divisé en un ensemble d'entraînement et un ensemble de validation, suivant une répartition de 70/30.
+Nous avons mis en place une régression logistique, normalisant les coordonnées pour les aligner dans une direction de jeu commune. Nous nous sommes concentrés sur la distance du tir comme caractéristique principale pour l'un des modèles. Durant la phase d'entraînement, le jeu de données a été divisé en un ensemble d'entraînement et un ensemble de validation.
 
 Nous avons obtenu une exactitude de 90% avec la régression logistique. Cependant, en examinant de plus près les prédictions du modèle, nous avons remarqué qu'il prédit systématiquement 0 pour chaque exemple de l'ensemble de validation. Cette observation indique que, malgré une exactitude apparente élevée, le modèle pourrait avoir un biais significatif, ignorant potentiellement la classe minoritaire (les tirs aboutissant à un but).
 
@@ -58,8 +58,8 @@ Vous trouverez les différents modèles sous l'onglet 'models' et les graphiques
 
 Ci-après sont présentés les graphiques relatifs à ces expériences :
 
-#### Courbe ROC
-![SCREENSHOT OF Comparaison des types de tirs](logistic_baseline/)
+## Courbe ROC
+![SCREENSHOT OF Comparaison des types de tirs](logistic_baseline/2023-10-08-Logistic_ROC_Curves_Val.png)
 
 Le graphique présente trois courbes représentatives de trois modèles distincts, ainsi qu'un classifieur aléatoire. La courbe du modèle qui ne prend en compte que l'angle de tir affiche un AUC de 0.5, révélant une performance équivalente à celle d'une sélection aléatoire. Cela indique que, pris isolément, l'angle de tir ne fournit aucune information significative pour prédire l'issue d'un tir.
 
@@ -67,8 +67,8 @@ Par contraste, les modèles qui intègrent la distance comme variable prédictiv
 
 Il est essentiel de remarquer que les courbes pour les modèles basés uniquement sur la distance et ceux combinant distance et angle sont superposées, rendant la courbe bleue invisible sur le graphique car elle est masquée par l'autre. Ce détail souligne que l'angle de tir, lorsqu'il est combiné à la distance, ne renforce pas la capacité prédictive du modèle.
 
-#### Taux de but comme fonction du centile de la probabilité de tir donnée par les modèles
-![SCREENSHOT OF Comparaison des types de tirs](logistic_baseline/)
+## Taux de but comme fonction du centile de la probabilité de tir donnée par les modèles
+![SCREENSHOT OF Comparaison des types de tirs](logistic_baseline/2023-10-08-Logistic_Ratio_Goal_Percentile_Curves_Val.png)
 
 Le graphique illustre le taux de buts en fonction des percentiles de probabilité prédits par différents modèles de classification. Sur l'axe horizontal, nous trouvons les percentiles de probabilité, décroissants du 100ème percentile à gauche vers le 0ème percentile à droite. L'axe vertical montre le pourcentage de tirs qui se sont concrétisés par un but pour chaque percentile de probabilité.
 
@@ -83,8 +83,8 @@ Quant au modèle orange, se basant uniquement sur l'angle, il se rapproche des p
 Ce graphique s'avère également utile pour déterminer les seuils de probabilité où le modèle excelle ou échoue. Cette information peut s'avérer cruciale pour affiner le modèle ou pour élaborer des stratégies décisionnelles s'appuyant sur les probabilités prédites.
 
 
-#### Proportion cumulée de buts comme fonction du centile de la probabilité de tir donnée par les modèles
-![SCREENSHOT OF Comparaison des types de tirs](logistic_baseline/)
+## Proportion cumulée de buts comme fonction du centile de la probabilité de tir donnée par les modèles
+![SCREENSHOT OF Comparaison des types de tirs](logistic_baseline/2023-10-08-Logistic_Proportion_Goal_Percentile_Curves_Val.png)
 
 Le graphique dépeint la proportion cumulée de buts en fonction des percentiles de probabilité prédits par différents modèles de classification. Chaque point sur les courbes correspond à la proportion cumulée de buts pour les tirs avec une probabilité de marquer supérieure ou égale à celle indiquée par le percentile correspondant. L'axe horizontal expose les percentiles de probabilité des modèles, s'étendant de la probabilité la plus élevée (100ème percentile) à gauche vers la probabilité la plus basse (0ème percentile) à droite. L'axe vertical, quant à lui, représente la proportion cumulée de buts.
 
@@ -97,14 +97,14 @@ Les courbes orange et verte, représentant respectivement le modèle basé uniqu
 Enfin, la courbe rouge du classifieur aléatoire illustre une progression linéaire, comme prévu, puisqu'il attribue des probabilités de manière aléatoire, sans considération pour les données. 
 
 
-#### Courbe de calibration des modèles
-![SCREENSHOT OF Comparaison des types de tirs](logistic_baseline/)
+## Courbe de calibration des modèles
+![SCREENSHOT OF Comparaison des types de tirs](logistic_baseline/2023-10-08-Logistic_Calibration_Curves.png)
 
 Le diagramme de fiabilité affiché indique que les probabilités moyennes prédites par les modèles n'excèdent pas 0.2, suggérant une incapacité des modèles à prédire avec confiance l'occurrence de buts. En effet, dans un contexte idéal, les prédictions des modèles devraient couvrir une gamme plus large de probabilités si des distinctions claires entre les classes positives (buts) et négatives (non-buts) étaient identifiées.
 
-Le modèle basé uniquement sur la distance ('[distanceToGoal]') montre une légère augmentation des points bleus au début de la courbe, mais ces derniers ne s'élèvent pas au-dessus de la probabilité de 0.2. Cela peut indiquer que bien que le modèle soit calibré de manière acceptable dans cette gamme de probabilités, il demeure globalement très incertain quant à l'issue des tirs, limitant ainsi son utilité dans des situations où une prédiction plus affirmée est requise.
+Le modèle basé uniquement sur la distance montre une légère augmentation des points bleus au début de la courbe, mais ces derniers ne s'élèvent pas au-dessus de la probabilité de 0.2. Cela peut indiquer que bien que le modèle soit calibré de manière acceptable dans cette gamme de probabilités, il demeure globalement très incertain quant à l'issue des tirs, limitant ainsi son utilité dans des situations où une prédiction plus affirmée est requise.
 
-Le modèle basé uniquement sur l'angle ('[angleToGoal]') est absent du graphique, ce qui suggère que les probabilités prédites par ce modèle sont uniformément basses ou qu'elles ne varient pas significativement à travers les différentes tranches, donnant ainsi une prédiction moyenne constante. Cela révèle un manque considérable de pouvoir prédictif de l'angle lorsqu'il est utilisé par un modèle linéaire. La constance des prédictions moyennes par tranche, indépendamment des exemples de validation, renforce cette notion. Il serait intéressant d'essayer un modèle avec une capacité plus élevée, qui pourraient potentiellement extraire et utiliser des interactions non linéaires ou des caractéristiques cachées que les modèles linéaires ne parviennent pas à capturer.
+Le modèle basé uniquement sur l'angle est absent du graphique, ce qui suggère que les probabilités prédites par ce modèle sont uniformément basses ou qu'elles ne varient pas significativement à travers les différentes tranches, donnant ainsi une prédiction moyenne constante. Cela révèle un manque considérable de pouvoir prédictif de l'angle lorsqu'il est utilisé par un modèle linéaire. La constance des prédictions moyennes par tranche, indépendamment des exemples de validation, renforce cette notion. Il serait intéressant d'essayer un modèle avec une capacité plus élevée, qui pourraient potentiellement extraire et utiliser des interactions non linéaires ou des caractéristiques cachées que les modèles linéaires ne parviennent pas à capturer.
 
 Le classifieur aléatoire (courbe rouge) reste aligné le long de la base, comme attendu pour un modèle qui ne possède aucune capacité discriminative.
 
@@ -114,12 +114,12 @@ En conclusion, ce diagramme de fiabilité démontre que la distance peut offrir 
 
 Nous allons désormais évaluer la puissance prédictive des caractéristiques de distance et d'angle de tir à l'aide de modèles XGBoost, reconnus pour leur efficacité dans la gestion des interactions complexes entre les variables. Les modèles XGBoost ont été configurés pour optimiser à la fois la précision et la calibration des probabilités prédites.
 
-Comme pour les modèles précédents, les détails complets des baselines XGBoost, ainsi que les graphiques pertinents, sont consignés et accessibles via les artéfacts de cette expérience sur Comet. Vous pouvez les consulter en suivant le lien fourni : [lien vers les artéfacts Comet].
+Comme pour les modèles précédents, les détails complets des baselines XGBoost, ainsi que les graphiques pertinents, sont consignés et accessibles via les artéfacts de cette expérience sur Comet. Vous pouvez les consulter en suivant le lien fourni : [https://www.comet.com/nhl-project/train-xgboostclassifier-baseline/view/new/panels].
 
 Dans les sections suivantes, nous présenterons une série de visualisations, incluant des courbes ROC, des diagrammes de calibration, et des graphiques de taux de buts par percentile de probabilité. 
 
-#### Courbe ROC
-![SCREENSHOT OF Comparaison des types de tirs](xgboost_baseline/)
+## Courbe ROC
+![SCREENSHOT OF Comparaison des types de tirs](xgboost_baseline/2023-10-08-XGB_ROC_Curves_Val.png)
 
 
 La courbe ROC pour les modèles XGBoost révèle des différences notables par rapport aux performances des modèles logistiques précédemment analysés. Ce graphique montre que le modèle XGBoost utilisant la caractéristique d'angle présente un AUC de 0.59, ce qui est significativement meilleur qu'un classifieur aléatoire dont l'AUC est de 0.50. Cela suggère que, contrairement aux modèles logistiques, le modèle XGBoost est capable d'extraire un certain pouvoir prédictif de la caractéristique d'angle.
@@ -131,8 +131,8 @@ De façon plus marquante, le modèle XGBoost qui combine les deux caractéristiq
 Ces résultats mettent en lumière la flexibilité et la puissance de XGBoost dans l'exploitation des relations complexes au sein des données, ce qui peut se traduire par une meilleure performance prédictive dans des tâches de classification sophistiquées.
 
 
-#### Taux de but comme fonction du centile de la probabilité de tir donnée par les modèles
-![SCREENSHOT OF Comparaison des types de tirs](xgboost_baseline/)
+## Taux de but comme fonction du centile de la probabilité de tir donnée par les modèles
+![SCREENSHOT OF Comparaison des types de tirs](xgboost_baseline/2023-10-08-XGB_Ratio_Goal_Percentile_Curves_Val.png)
 
 
 Le graphique illustre comment les différents modèles XGBoost prédisent le taux de buts en fonction des probabilités. L'axe horizontal organise les probabilités prédites en percentiles, du plus élevé au plus bas, et l'axe vertical montre le taux réel de buts pour ces percentiles.
@@ -147,8 +147,8 @@ La courbe rouge pointillée du classifieur aléatoire quant à elle révèle san
 
 Ces observations démontrent l'efficacité du modèle XGBoost combinant la distance et l'angle, qui surpasse les modèles univariés et le classifieur aléatoire. Le graphique souligne l'importance de l'exploitation des interactions entre les variables pour améliorer la précision des prédictions dans des modèles de classification avancés.
 
-#### Proportion cumulée de buts comme fonction du centile de la probabilité de tir donnée par les modèles
-![SCREENSHOT OF Comparaison des types de tirs](xgboost_baseline/)
+## Proportion cumulée de buts comme fonction du centile de la probabilité de tir donnée par les modèles
+![SCREENSHOT OF Comparaison des types de tirs](xgboost_baseline/2023-10-08-XGB_Proportion_Goal_Percentile_Curves_Val.png)
 
 Le graphique présente la proportion cumulée de buts réels par rapport aux prédictions des modèles, segmentées en percentiles. Le modèle vert, qui combine les caractéristiques de distance et d'angle, se distingue en affichant la courbe la plus haute, indiquant que cette combinaison de caractéristiques donne les prédictions les plus précises pour les tirs les plus susceptibles de résulter en buts, notamment dans les tranches de haute probabilité.
 
@@ -158,13 +158,13 @@ Le classifieur aléatoire est représenté par la courbe rouge et montre une pro
 
 Dans un scénario idéal, un modèle parfait aurait une courbe qui monte rapidement vers le percentile le plus élevé et se maintient ensuite, reflétant une précision absolue dans la prédiction des buts. Bien que les modèles présentés n'atteignent pas cet idéal, le modèle combinant distance et angle se rapproche le plus de ce comportement, montrant ainsi sa supériorité en termes de capture des tirs à fort potentiel de buts.
 
-#### Diagramme de fiabilité des modèles
-![SCREENSHOT OF Comparaison des types de tirs](xgboost_baseline/)
+## Diagramme de fiabilité des modèles
+![SCREENSHOT OF Comparaison des types de tirs](xgboost_baseline/2023-10-08-XGB_Calibration_Curves.png)
 
 Le graphique de calibration pour les modèles XGBoost montre une tendance nettement différente de celle observée dans les graphiques correspondants pour les modèles de régression logistique. Ici, les probabilités moyennes prédites par les tranches s'étendent presque jusqu'à 0.6 pour le modèle le plus performant, ce qui contraste avec la plage plus limitée des probabilités moyennes observées dans les modèles de régression logistique.
 
 Pour les probabilités inférieures à 0.2, les trois modèles XGBoost présentent une bonne performance de calibration, leurs courbes respectives s'alignant de près avec la ligne de calibration parfaite. Cela indique une estimation fiable des probabilités pour les tirs moins susceptibles de devenir des buts. Cependant, à mesure que nous nous déplaçons vers des probabilités plus élevées, des divergences apparaissent.
 
-Notamment, le modèle basé sur la distance ne produit des estimations que jusqu'à une probabilité prédite d'environ 0.3, après quoi il n'y a plus de données, suggérant une limitation dans la capacité du modèle à prédire des tirs avec des probabilités plus élevées de réussite. D'un autre côté, le modèle combiné, qui intègre à la fois la distance et l'angle, continue de produire des estimations pour des probabilités plus élevées. Ce modèle montre une sous-estimation pour les probabilités autour de 0.4, où la fréquence observée de buts est plus élevée que ce que le modèle prédit. Inversement, pour des probabilités autour de 0.5, le modèle a tendance à surestimer les chances de buts.
+Notamment, le modèle basé sur la distance ne produit des estimations que jusqu'à une probabilité prédite d'environ 0.3, après quoi il n'y a plus de données, suggérant une limitation dans la capacité du modèle à prédire des tirs avec des probabilités plus élevées de réussite. D'un autre côté, le modèle combiné, qui intègre à la fois la distance et l'angle, continue de produire des estimations pour des probabilités plus élevées. Ce modèle montre cependant une grande variabilité dans les prédictions pour les probabilité prédite moyennes plus élevés, montrant une grande incertitude quant aux prédictions.
 
-Malgré ces zones de surestimation et de sous-estimation, la performance globale du modèle combiné représente une amélioration significative par rapport aux baselines de régression logistique. Cette amélioration est particulièrement notable dans la capacité du modèle à fournir des estimations de probabilité pour un éventail plus large de situations de tir, ainsi que dans la précision accrue des prédictions pour les probabilités plus élevées. Cela démontre l'avantage des modèles XGBoost dans la modélisation de phénomènes complexes où les interactions entre les variables jouent un rôle clé.
+La performance globale du modèle combiné représente une amélioration significative par rapport aux baselines de régression logistique. Cette amélioration est particulièrement notable dans la capacité du modèle à fournir des estimations de probabilité pour un éventail plus large de situations de tir, ainsi que dans la précision accrue des prédictions pour les probabilités plus élevées. Cela démontre l'avantage des modèles XGBoost dans la modélisation de phénomènes complexes où les interactions entre les variables jouent un rôle clé.

@@ -1,3 +1,11 @@
+import sys
+import os
+from pathlib import Path
+
+# Add the parent directory to sys.path to enable importing from there
+parent_dir = Path(__file__).parent.parent
+sys.path.append(str(parent_dir))
+
 import pickle
 import time
 import comet_ml
@@ -29,6 +37,8 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
 
     print(dict(cfg))
 
+    OPTIMIZER_CONF = cfg.hp_optimizer
+        
     # =================================Prepare Data==========================================================
     
     PATH_RAW_CSV = Path(os.getenv("DATA_FOLDER"))/ cfg.data_pipeline.raw_train_data_path
@@ -83,8 +93,6 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
     )
     (OUTPUT_DIR / 'val').mkdir(parents=True, exist_ok=True)
 
-    OPTIMIZER_CONF = cfg.hp_optimizer
-
     opt = comet_ml.Optimizer(
         OmegaConf.to_object(OPTIMIZER_CONF),
     )
@@ -106,6 +114,19 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
             OmegaConf.create(MODEL_CONFIG),
             OmegaConf.create(experiment.params),
         )
+
+        if MODEL_CONFIG.model_type == "MLPClassifier":
+        
+            hidden_layer_sizes = [
+                MERGED_DICT_MODEL_PARAMS.layer1_size,
+                MERGED_DICT_MODEL_PARAMS.layer2_size,
+                MERGED_DICT_MODEL_PARAMS.layer3_size,
+                MERGED_DICT_MODEL_PARAMS.layer4_size,
+            ]
+
+            hidden_layer_sizes = hidden_layer_sizes[: MERGED_DICT_MODEL_PARAMS.n_layer]
+
+            MERGED_DICT_MODEL_PARAMS.hidden_layer_sizes = hidden_layer_sizes
 
         if cfg.USE_CROSS_VALIDATION: 
             GENERATOR_IDX = CV_index_generator

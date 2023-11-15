@@ -4,7 +4,7 @@ defaults:
       - feature_engineering # will resolve to content in ./data_pipeline/feature_engineering.yaml
       - data_preprocessing # will resolve to content in ./data_pipeline/data_preprocessing.yaml
       - feature_selection # will resolve to content in ./data_pipeline/feature_selection.yaml
-  - model : xgboost # xgboost logistic_regression | will resolve to content in ./model/logistic_regression.yaml
+  - model : mlp_classifier # xgboost logistic_regression | will resolve to content in ./model/logistic_regression.yaml
 
 # TODO : PROVIDE A KEY TO RESUME TRAINING FROM A PREVIOUS CHECKPOINT/COMET EXPERIMENT
 # resume_from_
