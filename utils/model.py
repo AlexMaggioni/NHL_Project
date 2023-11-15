@@ -61,6 +61,7 @@ def create_model(
         # Define the initialization parameters for MLPClassifier
         kwargs_init_model = {
             'hidden_layer_sizes': MODEL_CONFIG.hidden_layer_sizes,
+            'learning_rate_init': MODEL_CONFIG.learning_rate_init,
             'alpha': MODEL_CONFIG.alpha,
             'activation': MODEL_CONFIG.activation,
             'solver': MODEL_CONFIG.solver,
