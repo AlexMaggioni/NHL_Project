@@ -1,3 +1,3 @@
-feature_selection_type : null #tree_based_feature_selection # null
+feature_selection_type : tree_based_feature_selection #tree_based_feature_selection # null
 
 # add args from https://scikit-learn.org/stable/modules/generated/sklearn.feature_selection.SelectFromModel.html#sklearn.feature_selection.SelectFromModel

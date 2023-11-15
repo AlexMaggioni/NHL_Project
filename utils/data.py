@@ -74,7 +74,6 @@ def init_data_for_isgoal_classification_experiment(
         RAW_DATA_PATH : Path,
         DATA_PIPELINE_CONFIG : DictConfig,
         version : str,
-        comet_experiment_object : Experiment,
         TRAIN_TEST_PREDICATE_SPLITTING : str,
         load_engineered_data_from : str,
         logger,

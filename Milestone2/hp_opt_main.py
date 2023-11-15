@@ -1,3 +1,4 @@
+import pickle
 import time
 import comet_ml
 import datetime
@@ -16,6 +17,7 @@ from utils.metrics import assess_classifier_perf
 
 from utils.misc import init_logger, verify_dotenv_file
 from utils.model import train_classifier_model
+from utils.trainer import train_and_eval
 
 verify_dotenv_file(Path(__file__).parent.parent)
 
@@ -26,23 +28,6 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
     DATA_PIPELINE_CONFIG = cfg.data_pipeline
 
     print(dict(cfg))
-
-    COMET_EXPERIMENT = Experiment(
-        project_name=f'{MODEL_CONFIG.model_type}_hp_opt',
-        workspace='nhl-project',
-    )
-    MODEL_TYPE = MODEL_CONFIG.model_type
-
-    now_date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    OUTPUT_DIR = (
-        Path(os.getenv("TRAINING_ARTIFACTS_PATH"))
-        / f'hyp_opt_{MODEL_TYPE}'
-        / now_date
-    )
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-
-    COMET_EXPERIMENT.log_parameters(dict(cfg), prefix='HYDRA_')
 
     # =================================Prepare Data==========================================================
     
@@ -57,7 +42,6 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
         RAW_DATA_PATH = PATH_RAW_CSV,
         DATA_PIPELINE_CONFIG = DATA_PIPELINE_CONFIG,
         version = FEATURE_ENG_VERSION,
-        comet_experiment_object = COMET_EXPERIMENT,
         TRAIN_TEST_PREDICATE_SPLITTING = TRAIN_TEST_SPLIT_CONDITION,
         load_engineered_data_from = LOAD_FROM_EXISTING_FEATURE_ENG_DATA,
         logger = logger,
@@ -83,18 +67,22 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
     logger.info("DROPPING eventType column")
     DATA_PREPROCESSOR_OBJ.X_train = DATA_PREPROCESSOR_OBJ.X_train.drop(columns=['eventType'])
     DATA_PREPROCESSOR_OBJ.X_test = DATA_PREPROCESSOR_OBJ.X_test.drop(columns=['eventType'])
-    
-    CV_index_generator  = DATA_PREPROCESSOR_OBJ._split_data()
 
-    train_index, val_index = CV_index_generator.__next__()
-    X_train = DATA_PREPROCESSOR_OBJ.X_train.iloc[train_index, :]
-    y_train = DATA_PREPROCESSOR_OBJ.y_train.iloc[train_index]
-    X_val = DATA_PREPROCESSOR_OBJ.X_train.iloc[val_index, :]
-    y_val = DATA_PREPROCESSOR_OBJ.y_train.iloc[val_index]
-    X_test = DATA_PREPROCESSOR_OBJ.X_test
-    y_test = DATA_PREPROCESSOR_OBJ.y_test
+    # =================================COMET ML Optimizer Run==========================================================
 
-    # =================================Optimizer Run==========================================================
+    MODEL_TYPE = MODEL_CONFIG.model_type
+
+    PROJECT_NAME = f'hp_opt_{MODEL_TYPE}' \
+        + ('_CV' if cfg.USE_CROSS_VALIDATION else '') \
+        
+    now_date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    OUTPUT_DIR = (
+        Path(os.getenv("TRAINING_ARTIFACTS_PATH"))
+        / PROJECT_NAME
+        / now_date
+    )
+    (OUTPUT_DIR / 'val').mkdir(parents=True, exist_ok=True)
+
     OPTIMIZER_CONF = cfg.hp_optimizer
 
     opt = comet_ml.Optimizer(
@@ -104,62 +92,77 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
     # we track the best model
     BEST_MODEL = {
         'path' : None,
-        'score' : 0
+        'score' : 0,
+        'best_params' : None,
+        'data': None,
     }
-    
-    for i, experiment in enumerate(opt.get_experiments()):
-        
-        experiment.set_name(f'{now_date}_{MODEL_CONFIG.model_type}__{i}')
+    CV_index_generator  = DATA_PREPROCESSOR_OBJ._split_data()
+    # import pdb; pdb.set_trace()
+    for i_hp, experiment in enumerate(opt.get_experiments(project_name=PROJECT_NAME)):
+        experiment.log_parameters(dict(cfg), prefix='HYDRA_')
+        experiment.set_name(f'{now_date}_{MODEL_CONFIG.model_type}__{i_hp}')
 
-        MERGED_DICT = OmegaConf.merge(
+        MERGED_DICT_MODEL_PARAMS = OmegaConf.merge(
             OmegaConf.create(MODEL_CONFIG),
             OmegaConf.create(experiment.params),
         )
 
-        TRAINED_CLASSIFIER, training_duration = train_classifier_model(
-            X_train = X_train,
-            y_train = y_train,
-            X_val = X_val,
-            y_val = y_val,
-            DATA_PIPELINE_CONFIG = DATA_PIPELINE_CONFIG,
-            MODEL_CONFIG = MERGED_DICT,
-            logger = logger,
-        )
+        if cfg.USE_CROSS_VALIDATION: 
+            GENERATOR_IDX = CV_index_generator
+        else:
+            CV_index_generator  = DATA_PREPROCESSOR_OBJ._split_data()
+            GENERATOR_IDX = [CV_index_generator.__next__()]
+        for i_cv, (train_index, val_index) in enumerate(GENERATOR_IDX):
+            print(f"Cross-Valisation Fold {i_cv}:")
 
-        logger.info(f"Training duration : {training_duration}")
+            X_train = DATA_PREPROCESSOR_OBJ.X_train.iloc[train_index,:]
+            y_train = DATA_PREPROCESSOR_OBJ.y_train.iloc[train_index,:]
+            X_val = DATA_PREPROCESSOR_OBJ.X_train.iloc[val_index,:]
+            y_val = DATA_PREPROCESSOR_OBJ.y_train.iloc[val_index,:]
 
-        VAL_METRICS = assess_classifier_perf(
-            y=y_val,
-            y_pred=TRAINED_CLASSIFIER.predict(X_val),
-            title_model=f'{MODEL_CONFIG.model_type}',
-        )
+            MODEL_KEY = f'{MODEL_CONFIG.model_type}__hp_{i_hp}_cv_{i_cv}'
 
-        SCORE = roc_auc_score(y_val, TRAINED_CLASSIFIER.predict_proba(X_val)[:, 1])
-
-        if SCORE > BEST_MODEL['score']:
-            logger.info(f"New best model found with score : {SCORE} saved at {OUTPUT_DIR / f'{now_date}_{MODEL_CONFIG.model_type}__{i}'}")
-            BEST_MODEL['score'] = SCORE
-            BEST_MODEL['path'] = OUTPUT_DIR / f'{now_date}_{MODEL_CONFIG.model_type}__{i}.pkl'
-
-            #save model locally
-            TRAINED_CLASSIFIER.save_model(BEST_MODEL['path'])
-
-            experiment.log_model(
-                name=f'{MODEL_CONFIG.model_type}__{i}__{SCORE}',
-                file_or_folder=BEST_MODEL['path'],
-                metadata={
-                    **MERGED_DICT,
-                    'roc_auc_score':SCORE,
-                }
+            RES_EXP = train_and_eval(
+                X_train = X_train,
+                y_train = y_train,
+                X_val = X_val,
+                y_val = y_val,
+                logger = logger,
+                COMET_EXPERIMENT = experiment,
+                title = MODEL_KEY,
+                DATA_PIPELINE_CONFIG = DATA_PIPELINE_CONFIG,
+                MODEL_CONFIG = MERGED_DICT_MODEL_PARAMS,
+                OUTPUT_DIR = OUTPUT_DIR,
+                X_test = None ,
+                y_test = None ,
+                USE_SAMPLE_WEIGHTS=cfg.USE_SAMPLE_WEIGHTS,
+                log_data_splits  = False,
+                log_model_to_comet  = False,
             )
 
-        experiment.log_metrics(VAL_METRICS, prefix='val_')
+            SCORE = roc_auc_score(y_val, RES_EXP[MODEL_KEY]['val']['proba_preds'][:,1])
+
+            if SCORE > BEST_MODEL['score']:
+                OUTPUT_PATH_BEST_MODEL = OUTPUT_DIR / f'{now_date}_{MODEL_CONFIG.model_type}__hp_{i_hp}_cv_{i_cv}_{SCORE}.pkl'
+                logger.info(f"New best model found with score : {SCORE} saved at {OUTPUT_PATH_BEST_MODEL} and pushed to COMET")
+                BEST_MODEL['score'] = SCORE
+                BEST_MODEL['path'] = OUTPUT_PATH_BEST_MODEL
+                BEST_MODEL['data'] = {'train':(X_train,y_train)}
+
+                OUTPUT_DICT = BEST_MODEL.update(RES_EXP)
+
+                with open(OUTPUT_PATH_BEST_MODEL, "wb") as f:
+                    pickle.dump(OUTPUT_DICT, f)
+                experiment.log_asset(str(OUTPUT_PATH_BEST_MODEL), OUTPUT_PATH_BEST_MODEL.name)
+
         experiment.log_metric('val_roc_auc_score', SCORE)
-        
+
         # Optionally, end the experiment:
         experiment.end()
 
     #TODO: log best model to comet avec le nom de lexp comme BEST
+    print('Best model found :')
+    print(OUTPUT_DICT)
 
 @hydra.main(
     version_base=None, config_path=os.getenv("YAML_CONF_DIR"), config_name="hp_opt_main_conf"

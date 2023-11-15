@@ -28,23 +28,23 @@ parameters:
     min: 0
     max: 10
 
-  reg_lambda :
-    type: float
-    # scaling_type: uniform
-    min: 0
-    max: 1
+  # reg_lambda :
+  #   type: float
+  #   # scaling_type: uniform
+  #   min: 0
+  #   max: 1
 
-  reg_alpha :
-    type: float
-    # scaling_type: uniform
-    min: 40
-    max: 180
+  # reg_alpha :
+  #   type: float
+  #   # scaling_type: uniform
+  #   min: 40
+  #   max: 180
 
-  gamma:
-    type: integer
-    # scaling_type: uniform
-    min: 1
-    max: 9
+  # gamma:
+  #   type: integer
+  #   # scaling_type: uniform
+  #   min: 1
+  #   max: 9
 
   min_child_weight : 
     type: integer
@@ -58,11 +58,11 @@ parameters:
     min: 0.5
     max: 1
   
-  subsample :
-    type: float
-    # scaling_type: uniform
-    min: 0.5
-    max: 1
+  # subsample :
+  #   type: float
+  #   # scaling_type: uniform
+  #   min: 0.5
+  #   max: 1
 
 # (Optional) String, specifying a personalizable name to associate with this search instance
 name: XGBoost Hyperparameter Optimization

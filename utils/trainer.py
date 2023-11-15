@@ -21,6 +21,8 @@ def train_and_eval(
     MODEL_CONFIG,
     OUTPUT_DIR,
     USE_SAMPLE_WEIGHTS : bool,
+    log_data_splits : bool = True,
+    log_model_to_comet : bool = True,
     X_test: pd.DataFrame = None,
     y_test: pd.Series = None,
 ):
@@ -29,16 +31,17 @@ def train_and_eval(
     print("Train ", X_train.describe())
     print("Val ", X_val.describe())
 
-    logger.info("Logging to comet_ml the data splits")
-    log_data_splits_to_comet(
-        COMET_EXPERIMENT=COMET_EXPERIMENT,
-        X_train=X_train,
-        y_train=y_train,
-        X_val=X_val,
-        y_val=y_val,
-        title=title,
-        logger=logger,
-    )
+    if log_data_splits:
+        logger.info("Logging to comet_ml the data splits")
+        log_data_splits_to_comet(
+            COMET_EXPERIMENT=COMET_EXPERIMENT,
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
+            title=title,
+            logger=logger,
+        )
 
     logger.info("Training model")
     TRAINED_CLASSIFIER, training_duration = train_classifier_model(
@@ -52,19 +55,21 @@ def train_and_eval(
         USE_SAMPLE_WEIGHTS=USE_SAMPLE_WEIGHTS,
     )
 
-    with tempfile.NamedTemporaryFile() as fp:
-        if isinstance(TRAINED_CLASSIFIER, BaseEstimator):
-            logger.info("Saving Scikit-Learn model {MODEL_CONFIG.model_type} to disk ")
-            dump(TRAINED_CLASSIFIER, fp.name)
+    if log_model_to_comet:
+        logger.info("Logging to comet_ml the model")
+        with tempfile.NamedTemporaryFile() as fp:
+            if isinstance(TRAINED_CLASSIFIER, BaseEstimator):
+                logger.info("Saving Scikit-Learn model {MODEL_CONFIG.model_type} to disk ")
+                dump(TRAINED_CLASSIFIER, fp.name)
 
-        if MODEL_CONFIG.model_type == "XGBoostClassifier":
-            TRAINED_CLASSIFIER.save_model(fp.name + ".json")
+            if MODEL_CONFIG.model_type == "XGBoostClassifier":
+                TRAINED_CLASSIFIER.save_model(fp.name + ".json")
 
-        COMET_EXPERIMENT.log_model(
-            name=title,
-            file_or_folder=fp.name,
-            metadata=OmegaConf.to_container(MODEL_CONFIG),
-        )
+            COMET_EXPERIMENT.log_model(
+                name=title,
+                file_or_folder=fp.name,
+                metadata=OmegaConf.to_container(MODEL_CONFIG),
+            )
 
     # evaluate accuracy on val set
     y_val_preds = TRAINED_CLASSIFIER.predict(X_val)

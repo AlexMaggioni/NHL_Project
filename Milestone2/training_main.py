@@ -31,20 +31,22 @@ def run_experiment(cfg: DictConfig, logger) -> None:
 
     MODEL_TYPE = MODEL_CONFIG.model_type
 
+    PROJECT_NAME = f'train_{MODEL_CONFIG.model_type}' \
+    + ('_baseline' if cfg.BASELINE_SUBSET_TO_ANGLE_DIST else '') \
+    + ('_CV' if cfg.USE_CROSS_VALIDATION else '') \
+    + ('_noTestSet' if cfg.holdout_test else '') \
+    + ('_featSel' if DATA_PIPELINE_CONFIG.feature_selection_type is not None else '') \
+
+
     now_date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     OUTPUT_DIR = (
         Path(os.getenv("TRAINING_ARTIFACTS_PATH"))
-        / MODEL_TYPE 
+        / PROJECT_NAME 
         / now_date
     )
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # =================================COMET ML=================================
-    PROJECT_NAME = f'train_{MODEL_CONFIG.model_type}' \
-        + ('_baseline' if cfg.BASELINE_SUBSET_TO_ANGLE_DIST else '') \
-        + ('_CV' if cfg.USE_CROSS_VALIDATION else '') \
-        + ('_noTestSet' if cfg.holdout_test else '') \
-        + ('_featSel' if DATA_PIPELINE_CONFIG.feature_selection_type is not None else '') \
 
     COMET_EXPERIMENT = Experiment(
         project_name=PROJECT_NAME,
@@ -64,7 +66,6 @@ def run_experiment(cfg: DictConfig, logger) -> None:
         RAW_DATA_PATH = PATH_RAW_CSV,
         DATA_PIPELINE_CONFIG = DATA_PIPELINE_CONFIG,
         version = FEATURE_ENG_VERSION,
-        comet_experiment_object = COMET_EXPERIMENT,
         TRAIN_TEST_PREDICATE_SPLITTING = TRAIN_TEST_SPLIT_CONDITION,
         load_engineered_data_from = LOAD_FROM_EXISTING_FEATURE_ENG_DATA,
         logger = logger,
@@ -86,28 +87,30 @@ def run_experiment(cfg: DictConfig, logger) -> None:
     DATA_PREPROCESSOR_OBJ.y_test = DATA_PREPROCESSOR_OBJ.y_test[DATA_PREPROCESSOR_OBJ.y_test.index.isin(idx_test)]
     logger.info(f"\t After subsetting : {DATA_PREPROCESSOR_OBJ.X_test.shape} rows in test set")
 
+    logger.info("DROPPING eventType column")
+    DATA_PREPROCESSOR_OBJ.X_train = DATA_PREPROCESSOR_OBJ.X_train.drop(columns=['eventType'])
+    DATA_PREPROCESSOR_OBJ.X_test = DATA_PREPROCESSOR_OBJ.X_test.drop(columns=['eventType'])
 
     # =================================Task-Specific (Classification Prob goal) data pre-proc=================================
     feature_selection_type = DATA_PIPELINE_CONFIG.feature_selection_type
     if feature_selection_type is not None:
         if feature_selection_type=='tree_based_feature_selection':
-            logger.info('FEATURE SELECTION : tree_based_feature_selection fit on train and test set')
+            logger.info('FEATURE SELECTION : tree_based_feature_selection fit on train set')
             from sklearn.ensemble import ExtraTreesClassifier
             from sklearn.feature_selection import SelectFromModel
             clf = ExtraTreesClassifier(n_estimators=50)
-            clf = clf.fit(DATA_PREPROCESSOR_OBJ.X_train, DATA_PREPROCESSOR_OBJ.y_train)
-            logger.info(f"Feature importance : {dict(zip(X.columns,clf.feature_importances_))}")
+            clf = clf.fit(DATA_PREPROCESSOR_OBJ.X_train, DATA_PREPROCESSOR_OBJ.y_train.to_numpy().ravel())
+            logger.info(f"Feature importance : {sorted(dict(zip(DATA_PREPROCESSOR_OBJ.X_train.columns,clf.feature_importances_)),key=lambda x:x[1])}")
             model = SelectFromModel(clf, prefit=True)
 
             DATA_PREPROCESSOR_OBJ.X_train = model.transform(DATA_PREPROCESSOR_OBJ.X_train)
             DATA_PREPROCESSOR_OBJ.X_test = model.transform(DATA_PREPROCESSOR_OBJ.X_test)
             logger.info(f"Feature selection : {DATA_PREPROCESSOR_OBJ.X_train.shape[1]} features selected")
+            logger.info(f'Features selected : {model.get_feature_names_out()}')
         else :
             raise NotImplementedError(f"feature_selection_type {feature_selection_type} not implemented")
 
     # =================================Train Model=================================
-
-    CV_index_generator  = DATA_PREPROCESSOR_OBJ._split_data()
 
     STATS_EXPERIMENT = {}
 
@@ -115,6 +118,7 @@ def run_experiment(cfg: DictConfig, logger) -> None:
 
     if cfg.BASELINE_SUBSET_TO_ANGLE_DIST:
         for features_to_include in [["distanceToGoal"], ["angleToGoal"], ["distanceToGoal", "angleToGoal"]]:
+            CV_index_generator  = DATA_PREPROCESSOR_OBJ._split_data()
             train_index, val_index = CV_index_generator.__next__()
 
             X_train = DATA_PREPROCESSOR_OBJ.X_train.iloc[train_index,:][features_to_include]
@@ -146,17 +150,21 @@ def run_experiment(cfg: DictConfig, logger) -> None:
 
             STATS_EXPERIMENT.update(RES_EXP)
     else :
+        CV_index_generator  = DATA_PREPROCESSOR_OBJ._split_data()
         if cfg.USE_CROSS_VALIDATION: 
             GENERATOR_IDX = CV_index_generator
         else:
+            CV_index_generator  = DATA_PREPROCESSOR_OBJ._split_data()
             GENERATOR_IDX = [CV_index_generator.__next__()]
-        for i, (train_index, val_index) in GENERATOR_IDX:
+        for i, (train_index, val_index) in enumerate(GENERATOR_IDX):
             print(f"Cross-Valisation Fold {i}:")
 
-            X_train = DATA_PREPROCESSOR_OBJ.X_train.iloc[train_index,:]
-            y_train = DATA_PREPROCESSOR_OBJ.y_train.iloc[train_index,:]
-            X_val = DATA_PREPROCESSOR_OBJ.X_train.iloc[val_index,:]
-            y_val = DATA_PREPROCESSOR_OBJ.y_train.iloc[val_index,:]
+            subset_idx = lambda obj, idx : obj.iloc[idx,:] if isinstance(obj, pd.DataFrame) else obj[idx,:]
+
+            X_train = subset_idx(DATA_PREPROCESSOR_OBJ.X_train, train_index)
+            y_train = subset_idx(DATA_PREPROCESSOR_OBJ.y_train, train_index)
+            X_val = subset_idx(DATA_PREPROCESSOR_OBJ.X_train, val_index)
+            y_val = subset_idx(DATA_PREPROCESSOR_OBJ.y_train, val_index)
             X_test = DATA_PREPROCESSOR_OBJ.X_test
             y_test = DATA_PREPROCESSOR_OBJ.y_test
 
@@ -177,6 +185,8 @@ def run_experiment(cfg: DictConfig, logger) -> None:
                 OUTPUT_DIR = OUTPUT_DIR,
                 X_test = None if cfg.holdout_test else X_test,
                 y_test = None if cfg.holdout_test else y_test,
+                USE_SAMPLE_WEIGHTS = cfg.USE_SAMPLE_WEIGHTS,
+
             )
 
             STATS_EXPERIMENT.update(RES_EXP)

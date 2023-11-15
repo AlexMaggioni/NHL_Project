@@ -5,13 +5,13 @@ defaults:
     - data_preprocessing # will resolve to content in ./data_pipeline/data_preprocessing.yaml
   - model : xgboost # will resolve to content in ./model/logistic_regression.yaml
   - hp_optimizer:
-    - conf
+    - xgboost
 
 # (Optional) Integer, specifying the number of trials to run per experiment. Defaults to 1.
 # trials: int (optional, default 1) number of trials per parameter set to test.
 trials: 1
 
-hold_out_test : True
-
 # boolean (optional, default 1) verbosity level where 0 means no output, and 1 (or greater) means to show more detail.
 verbose: 1
+USE_CROSS_VALIDATION : False
+USE_SAMPLE_WEIGHTS : True # for class imbal ance

@@ -193,6 +193,10 @@ def plotPerfModel(
 ) -> List[Path]:
     outputDir.mkdir(parents=True, exist_ok=True)
 
+    random_probs = np.random.rand(len(yTest), 2)
+    random_probs[:, 0] = 1 - random_probs[:, 1]
+    predictionsTest['random_Baseline'] = random_probs
+
     res_output = []
     if rocCurve:
         outputFile = outputDir / f"ROC_curves_{fn_info}.png"
