@@ -38,6 +38,8 @@ Pour affiner nos modèles prédictifs, nous avons adopté une méthodologie d'op
 
 Conscients de la menace que représente le surapprentissage, surtout lorsqu'on travaille avec un grand nombre de caractéristiques, nous avons inclus des paramètres de régularisation parmi les hyperparamètres à optimiser. La régularisation ajoute une pénalité pour la complexité du modèle dans la fonction de coût, favorisant ainsi des modèles plus simples qui sont moins susceptibles de mémoriser les données d'entraînement et plus à même de bien généraliser sur des données inédites.
 
+De plus, nous avons effectué une division stratifiée des ensembles de validation et d'entraînement afin de maintenir la même distribution de tirs ayant mené à un but, ce qui renforce la robustesse de nos résultats.
+
 Pour les algorithmes sensibles à l'échelle des données, tels que la régression logistique et le réseau de neurones multicouches (MLP), une étape de standardisation a été effectuée. Cette procédure a pour but de normaliser les caractéristiques en les recentrant autour de zéro et en les redimensionnant à une variance unitaire. Cela assure que les gradients et les étapes d'optimisation sont effectués de manière équilibrée et appropriée sur l'ensemble des caractéristiques.
 
 Il est également essentiel de souligner l'importance des étapes préliminaires de prétraitement des données qui constituent la fondation de nos modèles prédictifs. Nous encourageons vivement les lecteurs à consulter notre article détaillé sur le prétraitement des données, si ce n'est déjà fait. Dans cet article, nous discutons des transformations et des encodages cruciaux appliqués à notre jeu de données, qui sont indispensables pour comprendre la structure et la performance des modèles présentés ici.
