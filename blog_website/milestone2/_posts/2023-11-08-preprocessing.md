@@ -1,7 +1,7 @@
 ---
 layout: post
 author: Équipe A07
-title: Prétraitement et encodage des données avant l'entraînement des modèles avancés
+title: Prétraitement et encodage des données
 ---
 
 <style>
@@ -31,7 +31,7 @@ title: Prétraitement et encodage des données avant l'entraînement des modèle
 
 </style>
 
-# Prétraitement des Données
+# Prétraitement et encodage des données
 
 Bien que cette section n'ait pas été explicitement demandée dans le blog, nous considérons qu'il est important de mentionner les changements significatifs que nous avons apportés pour optimiser l'entraînement de nos modèles, y compris le modèle XGBoost entraîné sur l'ingénierie des caractéristiques II et dans nos tentatives de développer les meilleurs modèles possibles. Voici un aperçu des prétraitements les plus importants effectués :
 

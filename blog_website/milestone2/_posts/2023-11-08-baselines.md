@@ -1,7 +1,7 @@
 ---
 layout: post
 author: Équipe A07
-title: 3. Baselines logistique et XGBoost
+title: Baselines logistique et XGBoost
 ---
 
 <style>

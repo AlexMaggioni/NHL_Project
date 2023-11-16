@@ -1,7 +1,7 @@
 ---
 layout: post
 author: Équipe A07
-title: 4. Ingénierie des données II
+title: Ingénierie des données II
 ---
 
 <style>

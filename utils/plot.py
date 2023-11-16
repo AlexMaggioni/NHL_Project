@@ -12,7 +12,7 @@ import xgboost
 
 def plotRocCurves(
     predictionsTest: dict,
-    yTest: np.array, 
+    yTest: List[np.array], 
     outputPath: str = None
 ):
     """
@@ -29,9 +29,9 @@ def plotRocCurves(
     sns.set_theme(style="whitegrid")
     plt.figure(figsize=(10, 8))
     
-    for modelName, modelPredictions in predictionsTest.items():
+    for index, (modelName, modelPredictions) in enumerate(predictionsTest.items()):
         goalProb = modelPredictions[:, 1]
-        fpr, tpr, _ = roc_curve(yTest, goalProb)
+        fpr, tpr, _ = roc_curve(yTest[index], goalProb)
         rocAuc = auc(fpr, tpr)
         plt.plot(fpr, tpr, lw=2, label=f'{modelName} (AUC = {rocAuc:.2f})')
 
@@ -48,7 +48,7 @@ def plotRocCurves(
 
 def plotCombinedGoalRates(
     predictionsTest: dict, 
-    yTest: np.array, 
+    yTest: List[np.array], 
     outputPath: str = None, 
     binWidth: int = 5
 ):
@@ -66,7 +66,7 @@ def plotCombinedGoalRates(
 
     plt.figure(figsize=(10, 6))
 
-    for modelName, modelPredictions in predictionsTest.items():
+    for index, (modelName, modelPredictions) in enumerate(predictionsTest.items()):
         goalProb = modelPredictions[:, 1]
 
         modelPercentiles = []
@@ -77,7 +77,7 @@ def plotCombinedGoalRates(
             mask = (goalProb >= np.percentile(goalProb, lowerBound)) & (goalProb < np.percentile(goalProb, upperBound))
 
             totalShots = np.sum(mask)
-            totalGoals = np.sum(yTest[mask])
+            totalGoals = np.sum(yTest[index][mask])
             goalRate = (totalGoals / totalShots) * 100 if totalShots > 0 else 0
 
             modelPercentiles.append(lowerBound)
@@ -98,7 +98,7 @@ def plotCombinedGoalRates(
 
 def plotCumulativeGoals(
     predictionsTest: dict, 
-    yTest: np.array, 
+    yTest: List[np.array], 
     outputPath: str = None, 
     binWidth: int = 5
 ):
@@ -116,7 +116,7 @@ def plotCumulativeGoals(
 
     plt.figure(figsize=(10, 6))
 
-    for modelName, modelPredictions in predictionsTest.items():
+    for index, (modelName, modelPredictions) in enumerate(predictionsTest.items()):
         goalProb = modelPredictions[:, 1]  # Assuming the second column is the probability of a goal
 
         # Calculate percentiles
@@ -124,12 +124,12 @@ def plotCumulativeGoals(
         
         cumulativeGoals = []
         modelPercentiles = np.arange(0, 100, binWidth)
-        totalGoals = np.sum(yTest)
+        totalGoals = np.sum(yTest[index])
 
         for percentile in percentiles:
             # Select data where goalProb is higher than the current percentile
             mask = goalProb >= percentile
-            cumulativeGoals.append(np.sum(yTest[mask]) / totalGoals)
+            cumulativeGoals.append(np.sum(yTest[index][mask]) / totalGoals)
 
         # Plot
         plt.plot(modelPercentiles, cumulativeGoals, marker='o', label=modelName)
@@ -147,7 +147,7 @@ def plotCumulativeGoals(
 
 def plotCalibrationCurves(
     predictionsTest: dict, 
-    yTest: np.array, 
+    yTest: List[np.array], 
     outputPath: str = None, 
     nBins: int = 10
 ):
@@ -166,9 +166,9 @@ def plotCalibrationCurves(
     sns.set(style='whitegrid')
     fig, ax = plt.subplots(figsize=(10, 8))
 
-    for modelName, yProb in predictionsTest.items():
+    for index, (modelName, yProb) in predictionsTest.items():
         goalProb = yProb[:, 1]  # Assuming the second column is the probability of a goal
-        probTrue, probPred = calibration_curve(yTest, goalProb, n_bins=nBins)
+        probTrue, probPred = calibration_curve(yTest[index], goalProb, n_bins=nBins)
         ax.plot(probPred, probTrue, marker='o', label=modelName)
 
     ax.plot([0, 1], [0, 1], 'k--', label='Parfaitement Calibré')
@@ -182,7 +182,7 @@ def plotCalibrationCurves(
 
 def plotPerfModel(
     predictionsTest: dict,
-    yTest: np.ndarray,
+    yTest: list[np.ndarray],
     outputDir: Path,
     rocCurve: bool,
     ratioGoalPercentileCurve: bool,
