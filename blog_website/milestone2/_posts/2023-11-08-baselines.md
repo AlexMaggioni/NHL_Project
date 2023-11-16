@@ -52,7 +52,7 @@ Pour une évaluation appropriée de notre modèle dans un contexte de classes d�
 
 Nous avons testé trois modèles de base différents : un modèle de régression logistique utilisant uniquement la distance, un autre se basant exclusivement sur l'angle de tir, et un dernier combinant à la fois la distance et l'angle de tir. Pour contextualiser ces performances, un classifieur aléatoire a également été utilisé comme point de comparaison.
 
-Les détails de ces modèles, ainsi que les graphiques associés, sont disponibles dans les artéfacts de cette expérience sur Comet, accessible via le lien suivant : https://www.comet.com/nhl-project/logisticregression-single-training/view/new/panels.
+Les détails de ces modèles, ainsi que les graphiques associés, sont disponibles dans les artéfacts de cette expérience sur Comet, accessible via le lien suivant : [https://www.comet.com/nhl-project/train-logisticregression-baseline/bb46e003c5fc450e9cf47e6a294eaed8?experiment-tab=panels&showOutliers=true&smoothing=0&xAxis=wall].
 
 Vous trouverez les différents modèles sous l'onglet 'models' et les graphiques sous l'onglet 'images'. Pour une compréhension approfondie de la manière dont nos expériences ont été documentées sur Comet, veuillez consulter l'article correspondant.
 
@@ -114,7 +114,7 @@ En conclusion, ce diagramme de fiabilité démontre que la distance peut offrir 
 
 Nous allons désormais évaluer la puissance prédictive des caractéristiques de distance et d'angle de tir à l'aide de modèles XGBoost, reconnus pour leur efficacité dans la gestion des interactions complexes entre les variables. Les modèles XGBoost ont été configurés pour optimiser à la fois la précision et la calibration des probabilités prédites.
 
-Comme pour les modèles précédents, les détails complets des baselines XGBoost, ainsi que les graphiques pertinents, sont consignés et accessibles via les artéfacts de cette expérience sur Comet. Vous pouvez les consulter en suivant le lien fourni : [https://www.comet.com/nhl-project/train-xgboostclassifier-baseline/view/new/panels].
+Comme pour les modèles précédents, les détails complets des baselines XGBoost, ainsi que les graphiques pertinents, sont consignés et accessibles via les artéfacts de cette expérience sur Comet. Vous pouvez les consulter en suivant le lien fourni : [https://www.comet.com/nhl-project/train-xgboostclassifier-baseline/530e07cdbcba4843bd7bcdf94a5aa955?assetId=faf003c5bde94c8faacf485977831b5b&assetPath=images&experiment-tab=assetStorage].
 
 Dans les sections suivantes, nous présenterons une série de visualisations, incluant des courbes ROC, des diagrammes de calibration, et des graphiques de taux de buts par percentile de probabilité. 
 
