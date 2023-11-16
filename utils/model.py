@@ -5,8 +5,22 @@ import pandas as pd
 def create_model(
     MODEL_CONFIG : DictConfig, 
     DATA_PIPELINE_CONFIG : DictConfig,
-    logger 
+    logger,
+    RESUME_FROM_MODEL_CHECKPOINT : bool,
 ):
+    
+    if RESUME_FROM_MODEL_CHECKPOINT:
+        logger.info(f"!!!!!!!!! USING PREVIOUS MODEL -----> Loading model from {RESUME_FROM_MODEL_CHECKPOINT}")
+        if MODEL_CONFIG.model_type == "XGBoostClassifier":
+            import xgboost as xgb
+            classifier = xgb.XGBClassifier()
+            classifier.load_model(RESUME_FROM_MODEL_CHECKPOINT)
+        else:
+            import joblib
+            classifier = joblib.load(RESUME_FROM_MODEL_CHECKPOINT)
+        logger.info(f"!!!!!!!!! MODEL TYPE LOADED : {classifier.__class__.__name__}")
+        return classifier
+
     if MODEL_CONFIG.model_type == "LogisticRegression":
         from sklearn.linear_model import LogisticRegression
         logger.info(f"Creating {MODEL_CONFIG.model_type}")
@@ -17,6 +31,7 @@ def create_model(
             'solver':MODEL_CONFIG.solver,
             'verbose':MODEL_CONFIG.verbose,
             'class_weight':MODEL_CONFIG.class_weight,
+            'l1_ratio':MODEL_CONFIG.l1_ratio,
         }
         if MODEL_CONFIG.run_with_default_args == True:
             kwargs_init_model = {}
@@ -75,6 +90,18 @@ def create_model(
         # Create the MLPClassifier instance
         classifier = MLPClassifier(**kwargs_init_model)
 
+    if MODEL_CONFIG.model_type == "GaussianNB":
+
+        from sklearn.naive_bayes import GaussianNB
+        logger.info(f"Creating {MODEL_CONFIG.model_type}")
+
+        kwargs_init_model = {
+            'priors':MODEL_CONFIG.priors,
+            'var_smoothing':MODEL_CONFIG.var_smoothing,
+        }
+
+        classifier = GaussianNB(**kwargs_init_model)
+
     return classifier
 
 def train_classifier_model(
@@ -82,19 +109,15 @@ def train_classifier_model(
         y_train : pd.Series,
         X_val : pd.DataFrame,
         y_val : pd.Series,
-        DATA_PIPELINE_CONFIG : DictConfig,
         MODEL_CONFIG : DictConfig,
+        CLS_MODEL,
         logger,
         USE_SAMPLE_WEIGHTS : bool,
 ):
     
-    CLS_MODEL = create_model(
-        MODEL_CONFIG = MODEL_CONFIG,
-        DATA_PIPELINE_CONFIG = DATA_PIPELINE_CONFIG,
-        logger = logger,
-    )
-
     if MODEL_CONFIG.model_type == "MLPClassifier" or MODEL_CONFIG.model_type == "LogisticRegression":
+        logger.info(f"STANDARDIZING data for {MODEL_CONFIG.model_type}")
+
         from sklearn.preprocessing import StandardScaler
         scaler = StandardScaler()
         X_train = scaler.fit_transform(X_train)

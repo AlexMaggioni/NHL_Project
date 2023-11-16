@@ -1,0 +1,35 @@
+# String, indicating the search algorithm to use
+# https://www.comet.com/docs/v2/api-and-sdk/python-sdk/introduction-optimizer/#algorithm
+algorithm: bayes
+
+
+# Dictionary, defining the algorithm-specific specifications
+# https://www.comet.com/docs/v2/api-and-sdk/python-sdk/introduction-optimizer/#spec
+spec: 
+  maxCombo: 0
+  objective: maximize
+  metric: val_roc_auc_score
+  minSampleSize: 100
+  retryLimit: 20
+  retryAssignLimit: 0
+
+
+# Dictionary, defining the parameter distribution space
+# https://www.comet.com/docs/v2/api-and-sdk/python-sdk/introduction-optimizer/#parameters
+parameters:
+  
+  prior_class_0:
+    type: float
+    scalingType: loguniform
+    min: 0.6
+    max: 0.9
+
+  var_smoothing :
+    type: float
+    scalingType: loguniform
+    min: 1e-09
+    max: 1e-01
+
+
+# (Optional) String, specifying a personalizable name to associate with this search instance
+name: GaussianNB Hyperparameter Optimization

@@ -2,26 +2,26 @@ model_type: XGBoostClassifier
 
 run_with_default_args: False
 
-learning_rate : null # 0.01
+learning_rate : 0.01 # 0.01
 
 # Number of boosting rounds
-n_estimators : null # 180
+n_estimators : 180 # 180
 
-max_depth : null # 4
+max_depth : 9 # 4
 
-max_leaves : null # 0
+max_leaves : 0 # 0
 
-reg_lambda : null # 1
+reg_lambda : 1 # 1
 
-min_child_weight : null # 3
+min_child_weight : 9 # 3
 
-subsample : null # 0.5
+subsample : 0.5 # 0.5
 
-colsample_bytree : null # 0.3
+colsample_bytree : 0.764 # 0.3
 
 # The feature importance type for the feature_importances_ property:
 #     For tree model, it’s either “gain”, “weight”, “cover”, “total_gain” or “total_cover”.
 #     For linear model, only “weight” is defined and it’s the normalized coefficients without bias.
-importance_type : "gain"
+importance_type : null
 
-objective: null
+objective: multi:softmax

@@ -3,9 +3,8 @@ defaults:
   - data_pipeline:
     - feature_engineering # will resolve to content in ./data_pipeline/feature_engineering.yaml
     - data_preprocessing # will resolve to content in ./data_pipeline/data_preprocessing.yaml
-  - model : mlp_classifier # will resolve to content in ./model/logistic_regression.yaml
-  - hp_optimizer:
-    - mlp_classifier
+  - model : logistic_regression # will resolve to content in ./model/logistic_regression.yaml
+  - hp_optimizer: logistic_regression
 
 # (Optional) Integer, specifying the number of trials to run per experiment. Defaults to 1.
 # trials: int (optional, default 1) number of trials per parameter set to test.
@@ -15,3 +14,11 @@ trials: 1
 verbose: 1
 USE_CROSS_VALIDATION : False
 USE_SAMPLE_WEIGHTS : False # for class imbal ance
+
+COMET_EXPERIEMENT_TAGS:
+  - 'all_ft'
+
+RESUME_FROM_MODEL_CHECKPOINT: null # ABSOLUTE Path to pickle file | json file if XGBoost
+JUST_EVALUATE: True # Only evaluate on Val OR Test set
+LOG_DATA_SPLITS_BEFORE_TRAIN : False # Log data splits before training
+LOG_MDOEL : FALSE # Log model to comet

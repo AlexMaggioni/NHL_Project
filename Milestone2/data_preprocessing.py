@@ -33,6 +33,8 @@ class NHL_data_preprocessor:
         encodeStrength : bool,
         encodeLastEventType : bool,        
     ) -> None:
+        
+        self.gameType_Testset = df_test["gameType"]
 
         self.df_train = df_train
         self.df_test = df_test

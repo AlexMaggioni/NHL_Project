@@ -93,10 +93,6 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
     )
     (OUTPUT_DIR / 'val').mkdir(parents=True, exist_ok=True)
 
-    opt = comet_ml.Optimizer(
-        OmegaConf.to_object(OPTIMIZER_CONF),
-    )
-
     # we track the best model
     BEST_MODEL = {
         'path' : None,
@@ -104,43 +100,60 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
         'best_params' : None,
         'data': None,
     }
+
     CV_index_generator  = DATA_PREPROCESSOR_OBJ._split_data()
-    # import pdb; pdb.set_trace()
-    for i_hp, experiment in enumerate(opt.get_experiments(project_name=PROJECT_NAME)):
-        experiment.log_parameters(dict(cfg), prefix='HYDRA_')
-        experiment.set_name(f'{now_date}_{MODEL_CONFIG.model_type}__{i_hp}')
-        experiment.auto_output_logging = "default"
 
-        MERGED_DICT_MODEL_PARAMS = OmegaConf.merge(
-            OmegaConf.create(MODEL_CONFIG),
-            OmegaConf.create(experiment.params),
+    if cfg.USE_CROSS_VALIDATION: 
+        GENERATOR_IDX = CV_index_generator
+    else:
+        CV_index_generator  = DATA_PREPROCESSOR_OBJ._split_data()
+        GENERATOR_IDX = [CV_index_generator.__next__()]
+    for i_cv, (train_index, val_index) in enumerate(GENERATOR_IDX):
+        logger.info(f"Cross-Valisation Fold {i_cv}:")
+
+        X_train = DATA_PREPROCESSOR_OBJ.X_train.iloc[train_index,:]
+        y_train = DATA_PREPROCESSOR_OBJ.y_train.iloc[train_index,:]
+        X_val = DATA_PREPROCESSOR_OBJ.X_train.iloc[val_index,:]
+        y_val = DATA_PREPROCESSOR_OBJ.y_train.iloc[val_index,:]
+
+
+        opt = comet_ml.Optimizer(
+            OmegaConf.to_object(OPTIMIZER_CONF),
         )
-
-        if MODEL_CONFIG.model_type == "MLPClassifier":
         
-            hidden_layer_sizes = [
-                MERGED_DICT_MODEL_PARAMS.layer1_size,
-                MERGED_DICT_MODEL_PARAMS.layer2_size,
-                MERGED_DICT_MODEL_PARAMS.layer3_size,
-                MERGED_DICT_MODEL_PARAMS.layer4_size,
-            ]
+        for i_hp, experiment in enumerate(opt.get_experiments(project_name=PROJECT_NAME)):
 
-            hidden_layer_sizes = hidden_layer_sizes[: MERGED_DICT_MODEL_PARAMS.n_layer]
+            experiment.log_parameters(dict(cfg), prefix='HYDRA_')
+            experiment.set_name(f'{now_date}_{MODEL_CONFIG.model_type}__{i_hp}')
+            experiment.auto_output_logging = "default"
 
-            MERGED_DICT_MODEL_PARAMS.hidden_layer_sizes = hidden_layer_sizes
+            if cfg.COMET_EXPERIEMENT_TAGS is not None:
+                experiment.add_tags(OmegaConf.to_container(cfg.COMET_EXPERIEMENT_TAGS))
 
-        if cfg.USE_CROSS_VALIDATION: 
-            GENERATOR_IDX = CV_index_generator
-        else:
-            CV_index_generator  = DATA_PREPROCESSOR_OBJ._split_data()
-            GENERATOR_IDX = [CV_index_generator.__next__()]
-        for i_cv, (train_index, val_index) in enumerate(GENERATOR_IDX):
-            print(f"Cross-Valisation Fold {i_cv}:")
+            MERGED_DICT_MODEL_PARAMS = OmegaConf.merge(
+                OmegaConf.create(MODEL_CONFIG),
+                OmegaConf.create(experiment.params),
+            )
 
-            X_train = DATA_PREPROCESSOR_OBJ.X_train.iloc[train_index,:]
-            y_train = DATA_PREPROCESSOR_OBJ.y_train.iloc[train_index,:]
-            X_val = DATA_PREPROCESSOR_OBJ.X_train.iloc[val_index,:]
-            y_val = DATA_PREPROCESSOR_OBJ.y_train.iloc[val_index,:]
+            if MODEL_CONFIG.model_type == "MLPClassifier":
+            
+                hidden_layer_sizes = [
+                    MERGED_DICT_MODEL_PARAMS.layer1_size,
+                    MERGED_DICT_MODEL_PARAMS.layer2_size,
+                    MERGED_DICT_MODEL_PARAMS.layer3_size,
+                    MERGED_DICT_MODEL_PARAMS.layer4_size,
+                ]
+
+                hidden_layer_sizes = hidden_layer_sizes[: MERGED_DICT_MODEL_PARAMS.n_layer]
+
+                MERGED_DICT_MODEL_PARAMS.hidden_layer_sizes = hidden_layer_sizes
+
+            if MODEL_CONFIG.model_type == "GaussianNB":
+
+                prior_class_0 = MERGED_DICT_MODEL_PARAMS.prior_class_0
+                MERGED_DICT_MODEL_PARAMS.priors = [prior_class_0, 1-prior_class_0]
+
+            # import pdb; pdb.set_trace()
 
             MODEL_KEY = f'{MODEL_CONFIG.model_type}__hp_{i_hp}_cv_{i_cv}'
 
@@ -179,10 +192,10 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
 
                 experiment.add_tags(['Best_Model', f'hp_{i_hp}', f'cv_{i_cv}', f'score_{SCORE}'])
 
-        experiment.log_metric('val_roc_auc_score', SCORE)
+            experiment.log_metric('val_roc_auc_score', SCORE)
 
-        # Optionally, end the experiment:
-        experiment.end()
+            # Optionally, end the experiment:
+            experiment.end()
 
     #TODO: log best model to comet avec le nom de lexp comme BEST
     print('Best model found :')
