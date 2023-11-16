@@ -1,7 +1,7 @@
 ---
 layout: post
 author: Équipe A07
-title: Prétraitement et encodage des données avant entraînement
+title: Prétraitement et encodage des données avant l'entraînement des modèles avancés
 ---
 
 <style>
@@ -33,7 +33,7 @@ title: Prétraitement et encodage des données avant entraînement
 
 # Prétraitement des Données
 
-Bien que cette section n'ait pas été explicitement demandée dans le blog, nous considérons qu'il est important de mentionner les changements significatifs que nous avons apportés pour optimiser l'entraînement de nos modèles. Voici un aperçu des prétraitements les plus importants effectués :
+Bien que cette section n'ait pas été explicitement demandée dans le blog, nous considérons qu'il est important de mentionner les changements significatifs que nous avons apportés pour optimiser l'entraînement de nos modèles, y compris le modèle XGBoost entraîné sur l'ingénierie des caractéristiques II et dans nos tentatives de développer les meilleurs modèles possibles. Voici un aperçu des prétraitements les plus importants effectués :
 
 - **`gameDate`** : Initialement très granulaire, presque aussi unique qu'un gameId, cette variable a été simplifiée pour ne refléter que le mois de la rencontre. Transformée en une variable ordinale de 1 à 12, elle débute en octobre (1), se poursuit en novembre (2), et ainsi de suite, en accord avec le calendrier de la saison NHL.
 
@@ -53,4 +53,4 @@ Bien que cette section n'ait pas été explicitement demandée dans le blog, nou
 
 - **`speed`** : Les valeurs manquantes dans cette colonne résultaient d'un timeElapsed égal à 0, impliquant une vitesse théoriquement infinie. Nous avons choisi d'imputer ces valeurs manquantes par le maximum de la distribution, simulant une action instantanée et explosive sur la glace.
 
-En résumé, ce processus de prétraitement des données est crucial pour améliorer la qualité et l'efficacité de nos modèles. Ces étapes démontrent notre engagement à transformer les données brutes en informations significatives, essentielles pour des prédictions précises et fiables.
+En résumé, ce processus de prétraitement des données est crucial pour améliorer la qualité et l'efficacité de nos modèles.

@@ -35,7 +35,6 @@ title: 4. Ingénierie des données II
 
 Dans la continuité de notre analyse statistique avancée du hockey, nous avons mis en œuvre une ingénierie des caractéristiques sophistiquée pour mieux comprendre les nuances et les dynamiques du jeu. Cette deuxième partie se concentre sur l'élaboration et l'exploration de variables spécifiques qui nous permettent de déchiffrer plus finement les stratégies, les décisions et les probabilités derrière chaque action sur la glace. Les caractéristiques que nous avons développées sont essentielles pour prédire les issues des tirs et comprendre les comportements des joueurs en fonction de différentes situations de jeu.
 
-
 # Caractéristiques avancées explorées
 
 Voici les caractéristiques que nous avons développées pour cette section :
@@ -70,6 +69,14 @@ Voici les caractéristiques que nous avons développées pour cette section :
 
 Ces caractéristiques avancées seront utilisées dans nos modèles à venir. Elles vont nous aider à mieux analyser les données et à améliorer la précision de nos prédictions.
 
+# Téléchargement du jeu de donnée unifiée pour le match Winnipeg et Washington du 12 mars 2018
 
+Pour cette tâche, nous avons filtré notre jeu de données pour se concentrer sur un match spécifique : la rencontre entre Winnipeg et Washington du 12 mars 2018, ayant l'ID de jeu "2017021065". Ce filtrage a permis de créer un sous-ensemble détaillé de notre ensemble de données final, incluant toutes les caractéristiques avancées que nous avons développées.
+
+Nous avons ensuite téléchargé ce DataFrame filtré, avec toutes ses caractéristiques, en tant que fichier CSV en utilisant la méthode log_dataframe_profile(...) de Comet.ml. Le nom du fichier a été conservé sous 'wpg_v_wsh_2017021065'. 
+
+Il est crucial de souligner que le fichier téléchargé renferme des données unifiées, qui se distinguent du cadre de données brut. Cette nuance revêt une importance majeure : les données unifiées ont été spécifiquement traitées pour tenir compte de l'orientation du jeu, assurant ainsi leur alignement dans un sens unique et cohérent. Ce raffinement est déterminant, car il garantit que l'analyse tient compte de la direction du jeu sur la glace, offrant une perspective plus uniforme et précise, essentielle pour des analyses détaillées et des interprétations fiables.
+
+Vous pouvez trouver ce jeu de donnée à ce lien Comet : (https://www.comet.com/nhl-project/feature-engineering-output/fd71d1239ca64e309dcc9c2bcc185f61?experiment-tab=panels&showOutliers=true&smoothing=0&xAxis=step)
 
 
