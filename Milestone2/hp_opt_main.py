@@ -109,6 +109,7 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
     for i_hp, experiment in enumerate(opt.get_experiments(project_name=PROJECT_NAME)):
         experiment.log_parameters(dict(cfg), prefix='HYDRA_')
         experiment.set_name(f'{now_date}_{MODEL_CONFIG.model_type}__{i_hp}')
+        experiment.auto_output_logging = "default"
 
         MERGED_DICT_MODEL_PARAMS = OmegaConf.merge(
             OmegaConf.create(MODEL_CONFIG),
@@ -169,12 +170,14 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
                 BEST_MODEL['score'] = SCORE
                 BEST_MODEL['path'] = OUTPUT_PATH_BEST_MODEL
                 BEST_MODEL['data'] = {'train':(X_train,y_train)}
-
-                OUTPUT_DICT = BEST_MODEL.update(RES_EXP)
+                BEST_MODEL['best_params'] = experiment.params
+                RES_EXP.update(BEST_MODEL)
 
                 with open(OUTPUT_PATH_BEST_MODEL, "wb") as f:
-                    pickle.dump(OUTPUT_DICT, f)
+                    pickle.dump(RES_EXP, f)
                 experiment.log_asset(str(OUTPUT_PATH_BEST_MODEL), OUTPUT_PATH_BEST_MODEL.name)
+
+                experiment.add_tags(['Best_Model', f'hp_{i_hp}', f'cv_{i_cv}', f'score_{SCORE}'])
 
         experiment.log_metric('val_roc_auc_score', SCORE)
 
@@ -183,7 +186,7 @@ def run_hp_optimization_search(cfg: DictConfig, logger) -> None:
 
     #TODO: log best model to comet avec le nom de lexp comme BEST
     print('Best model found :')
-    print(OUTPUT_DICT)
+    print(BEST_MODEL)
 
 @hydra.main(
     version_base=None, config_path=os.getenv("YAML_CONF_DIR"), config_name="hp_opt_main_conf"

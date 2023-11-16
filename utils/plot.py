@@ -273,31 +273,34 @@ def plot_XGBOOST_feat_importance(
         logger,
         classifier : xgboost.XGBClassifier,
         X_train_samples : pd.DataFrame,
+        info : str
 ):
     PATH_GRAPHS = []
 
-    key = '+'.join(X_train_samples.columns)
+    # import pdb; pdb.set_trace()
+
+    key = info
 
     #feature importance plot
     importances = classifier._Booster.get_score(importance_type=classifier.importance_type)
-    print(importances)
-    for key in importances:
-        COMET_EXPERIMENT.log_other(key, importances[key])
-        
-    COMET_EXPERIMENT.log_asset_data(importances)
+    print(importances)        
+    COMET_EXPERIMENT.log_asset_data(
+        importances,
+        name=f'{key}_feature_importance.json',)
 
-    logger.info(f"Plotting XGBoost feature importance at {OUTPUT_DIR}")
-    ax = xgboost.plot_importance(classifier)
     output_feat_imp = OUTPUT_DIR / f'{key}_feature_importance.png'
+    logger.info(f"Plotting XGBoost feature importance at {output_feat_imp}")
+    ax = xgboost.plot_importance(classifier)
     ax.figure.savefig(str(output_feat_imp))
     PATH_GRAPHS.append(output_feat_imp)
 
     COMET_EXPERIMENT.log_image(str(output_feat_imp))
 
-    import shap
-        
-    logger.info(f"Plotting XGBoost SHAP values at {OUTPUT_DIR}")
 
+
+    import shap        
+    new_var = OUTPUT_DIR / f'{key}_summary_plot_SHAP.png'
+    logger.info(f"Plotting XGBoost SHAP values at {new_var}")
     # model_bytearray = classifier._Booster.save_raw('json')#[4:]
     # def myfunc(self=None):
     #     return model_bytearray
@@ -319,7 +322,6 @@ def plot_XGBOOST_feat_importance(
     feature_names = X_train_samples.columns
     # log Summary plot
     shap.summary_plot(shap_values, feature_names, show=False)
-    new_var = OUTPUT_DIR / f'{key}_summary_plot.png'
     plt.savefig(str( new_var))
     PATH_GRAPHS.append(new_var)
     COMET_EXPERIMENT.log_image(str(new_var))

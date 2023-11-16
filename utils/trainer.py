@@ -137,6 +137,7 @@ def train_and_eval(
                 X_train_samples=X_train.sample(
                     1000, random_state=DATA_PIPELINE_CONFIG.seed
                 ),
+                info=title,
             )
 
     return STATS_EXPERIMENT

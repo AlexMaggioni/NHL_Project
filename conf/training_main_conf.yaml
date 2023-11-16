@@ -13,3 +13,6 @@ holdout_test: True
 BASELINE_SUBSET_TO_ANGLE_DIST : False
 USE_CROSS_VALIDATION : True
 USE_SAMPLE_WEIGHTS : True # for class imbal ance
+
+COMET_EXPERIEMENT_TAGS:
+  - 'ft_sel_hp_def'

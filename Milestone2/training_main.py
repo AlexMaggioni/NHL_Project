@@ -12,6 +12,9 @@ import pandas as pd
 from rich import print
 from comet_ml import Artifact, Experiment
 from joblib import dump, load
+from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.feature_selection import SelectFromModel
+
 
 from utils.comet_ml import log_data_splits_to_comet
 from utils.misc import init_logger, verify_dotenv_file
@@ -55,6 +58,8 @@ def run_experiment(cfg: DictConfig, logger) -> None:
     EXP_NAME = f"{now_date.replace('_','')}"
     COMET_EXPERIMENT.set_name(EXP_NAME)
     COMET_EXPERIMENT.log_parameters(dict(cfg), prefix='HYDRA_')
+    if cfg.COMET_EXPERIEMENT_TAGS is not None:
+        COMET_EXPERIMENT.add_tags(OmegaConf.to_container(cfg.COMET_EXPERIEMENT_TAGS))
 
     # =================================Prepare Data=================================
     
@@ -95,18 +100,39 @@ def run_experiment(cfg: DictConfig, logger) -> None:
     feature_selection_type = DATA_PIPELINE_CONFIG.feature_selection_type
     if feature_selection_type is not None:
         if feature_selection_type=='tree_based_feature_selection':
+
             logger.info('FEATURE SELECTION : tree_based_feature_selection fit on train set')
-            from sklearn.ensemble import ExtraTreesClassifier
-            from sklearn.feature_selection import SelectFromModel
+
             clf = ExtraTreesClassifier(n_estimators=50)
+            # import pdb;pdb.set_trace()
             clf = clf.fit(DATA_PREPROCESSOR_OBJ.X_train, DATA_PREPROCESSOR_OBJ.y_train.to_numpy().ravel())
-            logger.info(f"Feature importance : {sorted(dict(zip(DATA_PREPROCESSOR_OBJ.X_train.columns,clf.feature_importances_)),key=lambda x:x[1])}")
+            feat_imp = sorted(dict(zip(DATA_PREPROCESSOR_OBJ.X_train.columns,clf.feature_importances_)).items(),key=lambda x:x[1],reverse=True)
+            logger.info(f"Feature importance : {feat_imp}")
+            
             model = SelectFromModel(clf, prefit=True)
 
             DATA_PREPROCESSOR_OBJ.X_train = model.transform(DATA_PREPROCESSOR_OBJ.X_train)
             DATA_PREPROCESSOR_OBJ.X_test = model.transform(DATA_PREPROCESSOR_OBJ.X_test)
-            logger.info(f"Feature selection : {DATA_PREPROCESSOR_OBJ.X_train.shape[1]} features selected")
-            logger.info(f'Features selected : {model.get_feature_names_out()}')
+
+            sub_features_names = clf.feature_names_in_[model.get_support(True)]
+            logger.info(f"Feature selection : {len(sub_features_names)} features selected : {sub_features_names}")
+
+            DATA_PREPROCESSOR_OBJ.X_train = pd.DataFrame(DATA_PREPROCESSOR_OBJ.X_train, columns=sub_features_names)
+            DATA_PREPROCESSOR_OBJ.X_test = pd.DataFrame(DATA_PREPROCESSOR_OBJ.X_test, columns=sub_features_names)
+
+            fname = OUTPUT_DIR / f"feature_selection_{feature_selection_type}_model.pkl"
+            with open(fname, "wb") as f:
+                dump(model, f)
+            COMET_EXPERIMENT.log_asset(
+                str(fname), 
+                fname.name,
+                metadata={
+                    'nb_features_selected' : len(sub_features_names),
+                    'features_selected' : sub_features_names,
+                    'feature_selection_type' : feature_selection_type,
+                    'feature_importance_scores' : feat_imp,
+                }
+            )
         else :
             raise NotImplementedError(f"feature_selection_type {feature_selection_type} not implemented")
 
@@ -157,7 +183,7 @@ def run_experiment(cfg: DictConfig, logger) -> None:
             CV_index_generator  = DATA_PREPROCESSOR_OBJ._split_data()
             GENERATOR_IDX = [CV_index_generator.__next__()]
         for i, (train_index, val_index) in enumerate(GENERATOR_IDX):
-            print(f"Cross-Valisation Fold {i}:")
+            logger.info(f"Cross-Valisation Fold {i}:")
 
             subset_idx = lambda obj, idx : obj.iloc[idx,:] if isinstance(obj, pd.DataFrame) else obj[idx,:]
 
@@ -168,7 +194,7 @@ def run_experiment(cfg: DictConfig, logger) -> None:
             X_test = DATA_PREPROCESSOR_OBJ.X_test
             y_test = DATA_PREPROCESSOR_OBJ.y_test
 
-            MODEL_KEY = MODEL_TYPE
+            MODEL_KEY = f'{MODEL_CONFIG.model_type}__cv_{i}'
             if feature_selection_type:
                 MODEL_KEY += '_withFeatureSelection'
 
@@ -186,7 +212,8 @@ def run_experiment(cfg: DictConfig, logger) -> None:
                 X_test = None if cfg.holdout_test else X_test,
                 y_test = None if cfg.holdout_test else y_test,
                 USE_SAMPLE_WEIGHTS = cfg.USE_SAMPLE_WEIGHTS,
-
+                log_data_splits = False,
+                log_model_to_comet = False,
             )
 
             STATS_EXPERIMENT.update(RES_EXP)
