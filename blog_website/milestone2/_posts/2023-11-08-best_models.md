@@ -52,7 +52,7 @@ L'application de l'optimisation bayésienne a conduit à une convergence vers un
 
 ## XGBoost 
 
-Lien vers l'expérience Comet : https://www.comet.com/nhl-project/hp-opt-xgboostclassifier/692478f3adeb4524b4a810f760ca86eb?experiment-tab=panels&showOutliers=true&smoothing=0&xAxis=step
+Lien vers l'expérience Comet : https://www.comet.com/nhl-project/hp-opt-xgboostclassifier/681d72f44e2f406abdf00973e21e906a?experiment-tab=params
 
 ![SCREENSHOT OF Comparaison des types de tirs](best_models/hyperparameters/xgboost_hp_research_space.png)
 

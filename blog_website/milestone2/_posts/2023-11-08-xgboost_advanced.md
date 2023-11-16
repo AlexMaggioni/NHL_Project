@@ -65,7 +65,7 @@ Les meilleures hyperparamètres que nous avons obtenus sont les suivants :
 - reg_lambda : 1. 
 - subsample : 0.5.
 
-Lien vers l'expérience : (https://www.comet.com/nhl-project/hp-opt-xgboostclassifier/df2eca942c2c42c1aa0d6cb650eb6296?experiment-tab=params)
+Lien vers l'expérience : (https://www.comet.com/nhl-project/hp-opt-xgboostclassifier/681d72f44e2f406abdf00973e21e906a?experiment-tab=params)
 
 # XGBoost sur les caractéristiques sélectionnées
 
@@ -79,7 +79,7 @@ Les meilleures hyperparamètres que nous avons obtenus sont les suivants :
 - min_child_weight : 10. 
 - reg_lambda : 1. 
 
-Lien vers l'expérience : (https://www.comet.com/nhl-project/hp-opt-xgboostclassifier/f1b0ff2f23a84b5799cd1166d7dada00?experiment-tab=panels&showOutliers=true&smoothing=0&xAxis=step)
+Lien vers l'expérience : (https://www.comet.com/nhl-project/hp-opt-xgboostclassifier/692478f3adeb4524b4a810f760ca86eb?experiment-tab=params)
 
 # Comparaisons des modèles 
 
