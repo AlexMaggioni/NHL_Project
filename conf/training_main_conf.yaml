@@ -1,23 +1,41 @@
+################################################################################
+# This file content will be passed to entrypoint in Milestone2/training_main.py
+# Define Behaviour of a single training run
+#
+################################################################################
 defaults:
-  - _self_
-  - data_pipeline:
+  - _self_ # DONT TOUCH THIS !!!
+  - data_pipeline: # DONT TOUCH THIS !!! instead modify in corresponding YAML file
       - feature_engineering # will resolve to content in ./data_pipeline/feature_engineering.yaml
       - data_preprocessing # will resolve to content in ./data_pipeline/data_preprocessing.yaml
       - feature_selection # will resolve to content in ./data_pipeline/feature_selection.yaml
-  - model : xgboost # xgboost logistic_regression | will resolve to content in ./model/logistic_regression.yaml
+  # MODIFY THIS TO USE MODEL OF YOUR CHOICE (MUST BE SAME FILENAME AS IN ./model/ folder)
+  - model : xgboost # will resolve to content in ./model/xgboost.yaml
 
-# TODO : PROVIDE A KEY TO RESUME TRAINING FROM A PREVIOUS CHECKPOINT/COMET EXPERIMENT
-# resume_from_
-
+# True to not evaluate performance on test set
 holdout_test: False
-BASELINE_SUBSET_TO_ANGLE_DIST : False
-USE_CROSS_VALIDATION : False
-USE_SAMPLE_WEIGHTS : True # for class imbal ance
 
+# True to run BASELINE run (subsetting data to distance OR angle features)
+BASELINE_SUBSET_TO_ANGLE_DIST : False
+
+# True to use Cross Validation
+USE_CROSS_VALIDATION : False
+
+# True to add a `sample_weight` arg in `fit` method ---> because class imbalance
+USE_SAMPLE_WEIGHTS : True
+
+# Tags to add to the COMET experiment
 COMET_EXPERIEMENT_TAGS:
   - 'xgboost_test_eval'
 
-RESUME_FROM_MODEL_CHECKPOINT: null # ABSOLUTE Path to pickle file | json file if XGBoost
+# Provide a path to instantiate a model from a checkpoint.  Provide ABSOLUTE PATH !!!1
+RESUME_FROM_MODEL_CHECKPOINT: null # pickle file if sklearn model | json file if XGBoost model
+
+# True to only evaluate on Val (AND if holdout_test==True, on Test set)
 JUST_EVALUATE: False # Only evaluate on Val OR Test set
+
+# Log to COMET train+val(+test if holdout_test==True) data sets as dataframe profile
 LOG_DATA_SPLITS_BEFORE_TRAIN : True # Log data splits before training
+
+# Log to COMET trained model after training as an asset
 LOG_TRAINED_MODEL : True # Log model to comet
