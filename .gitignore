@@ -3,10 +3,16 @@ log_file/
 __pycache__/
 blog_website/_site/
 blog_website/Gemfile.lock
-data/
 outputs/
 blog_website/Gemfile.lock
 training_artifacts/
 multirun/
 tesytest.py
 .cometml-runs/
+pickle_file_blog/
+data/2015
+data/2016
+data/2017
+data/2018
+data/2019
+data/2020
