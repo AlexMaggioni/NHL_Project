@@ -24,16 +24,16 @@ predicate_train_test_split : 'season == 2020'
 dropNaCoordinates : True  
 imputeNaSpeed : True
 encodeGameDate : True
-encodeGameType : True
 encodeShooterId : True
 encodeGoalieId : True
 encodeByTeam : True
-encodeShotType : True
-encodeStrength : True
-encodeLastEventType : True
+encodeGameType : True # FS_tree_based
+encodeShotType : True # FS_tree_based
+encodeStrength : True # FS_tree_based
+encodeLastEventType : True # FS_tree_based
 
-columns_to_drop : 
-  - gameId            
+columns_to_drop :
+  - gameId
   - season            
   - homeTeam
   - awayTeam
@@ -46,3 +46,30 @@ columns_to_drop :
   - penaltyMinutes
   - penalizedTeam
   - winTeam
+
+  # - gameType     
+  # - strength
+  # - rebound
+  # - changeAngle
+  # - lastEventType
+  # - awaySkaters
+  # - homeSkaters
+  # - elapsedPowerPlay
+  # - shotType
+
+# "gameDate"
+# "period"
+# "byTeam"
+# "coordinateX"
+# "coordinateY"
+# "shooterId"
+# "goalieId"
+# "emptyNet"
+# "distanceToGoal"
+# "angleToGoal"
+# "periodTimeSeconds"
+# "lastCoordinateX"
+# "lastCoordinateY"
+# "timeElapsed"
+# "distanceFromLastEvent"
+# "speed"

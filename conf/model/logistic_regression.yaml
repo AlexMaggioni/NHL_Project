@@ -1,6 +1,6 @@
 model_type: LogisticRegression
 
-run_with_default_args: True
+run_with_default_args: False
 
 penalty : l2 # Specify the norm of the penalty : l1, l2, elasticnet  default='l2'
 C : 1.0 # Inverse of regularization strength; must be a positive float. Like in support vector machines, smaller values specify stronger regularization. default=1.0
@@ -12,11 +12,13 @@ C : 1.0 # Inverse of regularization strength; must be a positive float. Like in 
 #   - 'newton-cholesky' is a good choice for n_samples >> n_features, especially with one-hot encoded categorical features with rare categories. 
 #       Note that it is limited to binary classification and the one-versus-rest reduction for multiclass classification. 
 #       Be aware that the memory usage of this solver has a quadratic dependency on n_features because it explicitly computes the Hessian matrix.
-solver :  'lbfgs'
+solver : saga
 
 class_weight : 'balanced'
 
-verbose : 5
+verbose : 0
+
+l1_ratio: 0.5
 
 # penalty : {'l1', 'l2', 'elasticnet', None}, default='l2'
 #     :

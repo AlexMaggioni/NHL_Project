@@ -1,0 +1,37 @@
+# String, indicating the search algorithm to use
+# https://www.comet.com/docs/v2/api-and-sdk/python-sdk/introduction-optimizer/#algorithm
+algorithm: bayes
+
+
+# Dictionary, defining the algorithm-specific specifications
+# https://www.comet.com/docs/v2/api-and-sdk/python-sdk/introduction-optimizer/#spec
+spec: 
+  maxCombo: 0
+  objective: maximize
+  metric: val_roc_auc_score
+  minSampleSize: 100
+  retryLimit: 20
+  retryAssignLimit: 0
+
+
+# Dictionary, defining the parameter distribution space
+# https://www.comet.com/docs/v2/api-and-sdk/python-sdk/introduction-optimizer/#parameters
+parameters:
+
+  penalty :  # Specify the norm of the penalty : l1, l2, elasticnet  default='l2'
+    type: categorical
+    values: 
+      - l1
+      - l2
+      - elasticnet
+
+  C : # Inverse of regularization strength; must be a positive float. Like in support vector machines, smaller values specify stronger regularization. default=1.0
+    type: float
+    scaling_type: uniform
+    min: 0.5
+    max: 1.0
+
+  
+
+# (Optional) String, specifying a personalizable name to associate with this search instance
+name: Logistic Regression Hyperparameter Optimization

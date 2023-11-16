@@ -61,12 +61,14 @@ def run_experiment(cfg: DictConfig, logger) -> None:
     if cfg.COMET_EXPERIEMENT_TAGS is not None:
         COMET_EXPERIMENT.add_tags(OmegaConf.to_container(cfg.COMET_EXPERIEMENT_TAGS))
 
+
     # =================================Prepare Data=================================
     
     PATH_RAW_CSV = Path(os.getenv("DATA_FOLDER"))/ cfg.data_pipeline.raw_train_data_path
     FEATURE_ENG_VERSION = cfg.data_pipeline.feature_engineering_version
     TRAIN_TEST_SPLIT_CONDITION = cfg.data_pipeline.predicate_train_test_split
     LOAD_FROM_EXISTING_FEATURE_ENG_DATA = cfg.data_pipeline.load_engineered_data_from
+    
     DATA_PREPROCESSOR_OBJ, DATA_FEATURE_ENG_OBJ = init_data_for_isgoal_classification_experiment(
         RAW_DATA_PATH = PATH_RAW_CSV,
         DATA_PIPELINE_CONFIG = DATA_PIPELINE_CONFIG,
@@ -136,6 +138,7 @@ def run_experiment(cfg: DictConfig, logger) -> None:
         else :
             raise NotImplementedError(f"feature_selection_type {feature_selection_type} not implemented")
 
+
     # =================================Train Model=================================
 
     STATS_EXPERIMENT = {}
@@ -172,6 +175,8 @@ def run_experiment(cfg: DictConfig, logger) -> None:
                 X_test = None if cfg.holdout_test else X_test,
                 y_test = None if cfg.holdout_test else y_test,
                 USE_SAMPLE_WEIGHTS = cfg.USE_SAMPLE_WEIGHTS,
+                RESUME_FROM_MODEL_CHECKPOINT = cfg.RESUME_FROM_MODEL_CHECKPOINT,
+                JUST_EVALUATE=cfg.JUST_EVALUATE,
             )
 
             STATS_EXPERIMENT.update(RES_EXP)
@@ -211,9 +216,13 @@ def run_experiment(cfg: DictConfig, logger) -> None:
                 OUTPUT_DIR = OUTPUT_DIR,
                 X_test = None if cfg.holdout_test else X_test,
                 y_test = None if cfg.holdout_test else y_test,
+                gameType_testSet = None if cfg.holdout_test else DATA_PREPROCESSOR_OBJ.gameType_Testset,
                 USE_SAMPLE_WEIGHTS = cfg.USE_SAMPLE_WEIGHTS,
-                log_data_splits = False,
-                log_model_to_comet = False,
+                JUST_EVALUATE = cfg.JUST_EVALUATE,
+                RESUME_FROM_MODEL_CHECKPOINT = cfg.RESUME_FROM_MODEL_CHECKPOINT,
+                log_data_splits = cfg.LOG_DATA_SPLITS_BEFORE_TRAIN,
+                log_model_to_comet = cfg.LOG_TRAINED_MODEL,
+
             )
 
             STATS_EXPERIMENT.update(RES_EXP)

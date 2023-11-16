@@ -1,0 +1,5 @@
+model_type: GaussianNB
+
+priors : null
+
+var_smoothing : null

@@ -6,7 +6,7 @@ from omegaconf import OmegaConf
 import pandas as pd
 from sklearn.base import BaseEstimator
 from utils.comet_ml import log_data_splits_to_comet
-from utils.model import train_classifier_model
+from utils.model import create_model, train_classifier_model
 
 
 def train_and_eval(
@@ -21,10 +21,13 @@ def train_and_eval(
     MODEL_CONFIG,
     OUTPUT_DIR,
     USE_SAMPLE_WEIGHTS : bool,
+    JUST_EVALUATE,
+    RESUME_FROM_MODEL_CHECKPOINT,
     log_data_splits : bool = True,
     log_model_to_comet : bool = True,
     X_test: pd.DataFrame = None,
     y_test: pd.Series = None,
+    gameType_testSet = None,
 ):
     STATS_EXPERIMENT = {title: {}}
 
@@ -43,23 +46,32 @@ def train_and_eval(
             logger=logger,
         )
 
-    logger.info("Training model")
-    TRAINED_CLASSIFIER, training_duration = train_classifier_model(
-        X_train=X_train,
-        y_train=y_train,
-        X_val=X_val,
-        y_val=y_val,
-        DATA_PIPELINE_CONFIG=DATA_PIPELINE_CONFIG,
-        MODEL_CONFIG=MODEL_CONFIG,
-        logger=logger,
-        USE_SAMPLE_WEIGHTS=USE_SAMPLE_WEIGHTS,
+    logger.info("Creating model")
+    TRAINED_CLASSIFIER = create_model(
+        MODEL_CONFIG = MODEL_CONFIG,
+        DATA_PIPELINE_CONFIG = DATA_PIPELINE_CONFIG,
+        logger = logger,
+        RESUME_FROM_MODEL_CHECKPOINT = RESUME_FROM_MODEL_CHECKPOINT,
     )
+
+    if JUST_EVALUATE is False:
+        logger.info("Training model")
+        TRAINED_CLASSIFIER, training_duration = train_classifier_model(
+            X_train=X_train,
+            y_train=y_train,
+            X_val=X_val,
+            y_val=y_val,
+            MODEL_CONFIG=MODEL_CONFIG,
+            CLS_MODEL=TRAINED_CLASSIFIER,
+            logger=logger,
+            USE_SAMPLE_WEIGHTS=USE_SAMPLE_WEIGHTS,
+        )
 
     if log_model_to_comet:
         logger.info("Logging to comet_ml the model")
         with tempfile.NamedTemporaryFile() as fp:
             if isinstance(TRAINED_CLASSIFIER, BaseEstimator):
-                logger.info("Saving Scikit-Learn model {MODEL_CONFIG.model_type} to disk ")
+                logger.info(f"Saving Scikit-Learn model {MODEL_CONFIG.model_type} to disk ")
                 dump(TRAINED_CLASSIFIER, fp.name)
 
             if MODEL_CONFIG.model_type == "XGBoostClassifier":
@@ -95,8 +107,8 @@ def train_and_eval(
             classifier=TRAINED_CLASSIFIER,
             title_model=title,
             logger=logger,
-            gameType_is_feat = 'gameType' in X_train.columns,
             COMET_EXPERIMENT=COMET_EXPERIMENT,
+            gameType_testSet=gameType_testSet,
         )
         STATS_EXPERIMENT[title].update(res_test)
 
@@ -104,7 +116,6 @@ def train_and_eval(
     STATS_EXPERIMENT[title].update(
         {
             "model": TRAINED_CLASSIFIER,
-            "training_time": training_duration,
             "val": {
                 "data": (X_val, y_val),
                 "proba_preds": y_val_proba_preds,
@@ -114,7 +125,10 @@ def train_and_eval(
         }
     )
 
-    if MODEL_CONFIG.model_type == "XGBoostClassifier":
+    if JUST_EVALUATE is False:
+        STATS_EXPERIMENT[title]["training_time"] =  training_duration
+
+    if MODEL_CONFIG.model_type == "XGBoostClassifier" and JUST_EVALUATE is False:
         STATS_EXPERIMENT[title]["val"]["results"] = TRAINED_CLASSIFIER.evals_result()
 
         from utils.plot import plot_XGBOOST_feat_importance, plot_XGBOOST_losses
@@ -149,22 +163,19 @@ def eval_on_test_set(
     classifier,
     title_model,
     logger,
-    gameType_is_feat : bool,
     COMET_EXPERIMENT,
+    gameType_testSet,
 ):
-    if "gameType" not in X_test.columns or X_test["gameType"].dtype != "int64":
-        raise ValueError(f"X_test should have a column named 'gameType'")
+
+    mask_idx_playoff = gameType_testSet == 'P'
 
     res = {'test':{}}
 
     logger.info("\t\t Evaluation des metriques sur les matchs des séries éliminatoires/playoff 2019/20")
     from utils.metrics import assess_classifier_perf
-    X_test_playoff = X_test[X_test['gameType'] == 1]
-    y_test_playoff = y_test[X_test['gameType'] == 1]
-
-    if gameType_is_feat is False:
-        X_test_playoff = X_test_playoff.drop(columns=['gameType'])
-
+    X_test_playoff = X_test[mask_idx_playoff]
+    y_test_playoff = y_test[mask_idx_playoff]
+    logger.info(f"X_test_playoff shape {X_test_playoff.shape}")
     preds_playoff = classifier.predict(X_test_playoff)
 
     TEST_METRICS_PLAYOFFS = assess_classifier_perf(
@@ -185,12 +196,9 @@ def eval_on_test_set(
 
     logger.info("\t\t Evaluation des metriques sur l'ensemble de données intact de la saison régulière 2019/20")
 
-    X_test_reg = X_test[X_test['gameType'] == 0]
-    y_test_reg = y_test[X_test['gameType'] == 0]
-
-    if gameType_is_feat is False:
-        X_test_reg = X_test_reg.drop(columns=['gameType'])
-
+    X_test_reg = X_test[~mask_idx_playoff]
+    y_test_reg = y_test[~mask_idx_playoff]
+    logger.info(f"X_test_reg shape {X_test_reg.shape}")
     preds_reg = classifier.predict(X_test_reg)
 
     TEST_METRICS_REG = assess_classifier_perf(
