@@ -12,6 +12,8 @@ Equipe A07:
 
 `Milestone1`: contains the python (ready-to-run/reproducible) scripts and notebooks for the first milestone
 
+`Milestone2`: contains the python (ready-to-run/reproducible) scripts and notebooks for the second milestone
+
 `.env` : contains the environment variables for the project, that you need to modify before runnning the python scripts/notebooks (!!!!!! SPECIFY ONLY ABSOLUTE PATH !!!!!!)
 
 `requirements.txt` : contains the python packages needed to run the python scripts/notebooks
@@ -19,6 +21,14 @@ Equipe A07:
 `data` : contains the data used for the project (we only pushed the .csv file (43.3 MB), the .json files were too heavy (5GB))
 
 `assets` : contains the images used for the notebook/blog website
+
+`conf` : contains the yaml files for the experiment parameters. Every yaml file is commented and so self-explanatory + a README.md file.
+
+`sh_scripts` : contains the bash scripts for several purposes
+
+`utils` : contains the python scripts for several purposes
+
+`Makefile` : use here to launch very useful commands (not as a build file)
 
 # How to use Jekyll
 
@@ -47,60 +57,12 @@ Then to add a new blog :
 
 # Milestone 1 - How to run python scripts/notebooks
 
-# Before Running Anything
-
-*	Modifier les variables d'environnement du fichier `.env` !!!!!! SPECIFY ONLY ABSOLUTE PATH !!!!!!
-* 	Construisez votre python venv : `pip install -r requirements.txt`
-
-## Acquisition des données (json files) depuis l'API de la NHL (requêtes GET) 
-
-```bash
-# télécharge chaque play de chaque match, que ce soit des playoffs ou de la saison régulière, pour chaque saison de 2016 à 2020
-python Milestone1/nhl_rest_api_fetcher.py --years $(seq -s ' ' 2016 2020)
-```
-
-## Nettoyer les données (.json to pandas dataframe)
-
-*<u>IMPORTANT NOTE:</u>* For sake of data reproducibility/lineage, filename of the newly generated .csv file MUST contain a *git commit id* in which `json_scrapper.py` was modified. 
-
-To retreive such, do:
-```bash
-git log -1 --pretty=format:"%h" Milestone1/json_scrapper.py
-
-# ouput: 1a2b3c4d
-```
-
-Then, you can run the following command:
-
-```bash
-# Scrappe tous les jsons file pour créer un fichier csv; concatenation of the .env\'s DATA_FOLDER var + arg given
-python Milestone1/json_scrapper.py --path_to_csv clean_data.csv
-```
-
-## Notebooks pour les visualisation simples/avancées et débuggage des fichiers .json
-
-* The notebooks are ready off-the-shelf for execution, so just choose a kernel and run them.
-
+There is a README.md [file](./Milestone1/README.md) in the Milestone1 folder that explains how to run the python scripts/notebooks.
 
 # Milestone 2 - How to run python scripts/notebooks
 
-## Before Running Anything
-
-* Initialiser CometML : `comet init`
-
-## Run experiment
-
-* Update the yaml files in conf/ with your desired parameters. Every yaml file is commented and so self-explanatory.
-
-* Run the experiment with the following command:
-
-```bash
-# Run experiment
-python Milestone2/main.py
-```
-
-## Run hyperparameter optimization
-
+There is a README.md [file](./Milestone2/README.md) in the Milestone1 folder that explains how to run the python scripts/notebooks.
 
 # DATA VERSIONING 
 
+There is a README.md [file](./data/README.md) in the data folder that explains how we decided to keep track of our data in complement of COMETML.

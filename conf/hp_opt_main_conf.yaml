@@ -1,9 +1,11 @@
 defaults:
-  - _self_
-  - data_pipeline:
+  - _self_ # DONT TOUCH THIS !!!
+  - data_pipeline: # DONT TOUCH THIS !!! instead modify in corresponding YAML file
     - feature_engineering # will resolve to content in ./data_pipeline/feature_engineering.yaml
     - data_preprocessing # will resolve to content in ./data_pipeline/data_preprocessing.yaml
+  # MODIFY THIS TO USE MODEL OF YOUR CHOICE (MUST BE SAME FILENAME AS IN ./model/ folder)
   - model : logistic_regression # will resolve to content in ./model/logistic_regression.yaml
+  # MODIFY THIS TO USE ADEQUAT HYPARAMETER CONFIGURATIONS (MUST BE SAME AS ABOVE model KEY)
   - hp_optimizer: logistic_regression
 
 # (Optional) Integer, specifying the number of trials to run per experiment. Defaults to 1.
@@ -12,12 +14,14 @@ trials: 1
 
 # boolean (optional, default 1) verbosity level where 0 means no output, and 1 (or greater) means to show more detail.
 verbose: 1
+
 USE_CROSS_VALIDATION : False
 USE_SAMPLE_WEIGHTS : False # for class imbal ance
 
 COMET_EXPERIEMENT_TAGS:
   - 'all_ft'
 
+# !!!!!! ALWAYS LET THOSE VARIABLES BELOW EQUALS TO null !!!!!!
 RESUME_FROM_MODEL_CHECKPOINT: null # ABSOLUTE Path to pickle file | json file if XGBoost
 JUST_EVALUATE: True # Only evaluate on Val OR Test set
 LOG_DATA_SPLITS_BEFORE_TRAIN : False # Log data splits before training
