@@ -19,7 +19,8 @@ fi
 YEAR_1=$1
 YEAR_2=$2
 
-BASE_DIR_PARENT=$(dirname "$(realpath "$(dirname "$0")")")
+BASE_DIR_PARENT=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+BASE_DIR_PARENT=$(dirname "$BASE_DIR_PARENT")
 
 PATH_TO_SCRIPT=$BASE_DIR_PARENT/Milestone1/json_scrapper.py
 
