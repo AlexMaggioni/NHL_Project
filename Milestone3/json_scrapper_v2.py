@@ -57,13 +57,18 @@ class JsonParser_v2:
 
         game_info = self.extract_game_info(data)
 
+        team_id_to_abbrv = {
+            data['homeTeam']['id']: (data['homeTeam']['abbrev'], "home"),
+            data['awayTeam']['id']: (data['awayTeam']['abbrev'], "away"),
+        }
+
         rows = []
         for play in data["plays"]:
             if shotGoalOnly:
                 if play["typeDescKey"] in ["goal", "shot-on-goal", "missed-shot", "blocked-shot"]:
-                    row_data = self.extract_play_data(play, game_info, rink_side_dict, winning_team)
+                    row_data = self.extract_play_data(play, game_info, rink_side_dict, winning_team, team_id_to_abbrv)
             else : 
-                row_data = self.extract_play_data(play, game_info, rink_side_dict, winning_team)
+                row_data = self.extract_play_data(play, game_info, rink_side_dict, winning_team, team_id_to_abbrv)
 
             rows.append(row_data)
 
@@ -90,9 +95,17 @@ class JsonParser_v2:
             eventOwnerTeamId_actual_play = actual_play['details']['eventOwnerTeamId']
             eventOwnerTeamId_is_home_team = eventOwnerTeamId_actual_play == data['homeTeam']['id']
         
-            if 
-
-            home_team_attacking_side = 'left' if eventOwnerTeamId_is_home_team else 'right'
+            if actual_play['zoneCode'] == 'D':
+                if actual_play['coordinates']['x'] > 0:
+                    homeTeamDefendingSide_first_period = 'right' if eventOwnerTeamId_is_home_team else 'left'
+                else:
+                    homeTeamDefendingSide_first_period = 'left' if eventOwnerTeamId_is_home_team else 'right'
+            
+            elif actual_play['zoneCode'] == 'O':
+                if actual_play['coordinates']['x'] > 0:
+                    homeTeamDefendingSide_first_period = 'left' if eventOwnerTeamId_is_home_team else 'right'
+                else:
+                    homeTeamDefendingSide_first_period = 'right' if eventOwnerTeamId_is_home_team else 'left'
 
         rink_side_dict = {
             1 : {
@@ -117,7 +130,7 @@ class JsonParser_v2:
             "gameId": int(safe_getitem_nested_dict(gameData, ["id"])),
             "season": int(safe_getitem_nested_dict(gameData, ["season"])),
             "gameType": int(safe_getitem_nested_dict(gameData, ["gameType"])),
-            "gameDate": int(safe_getitem_nested_dict(gameData, ["gameDate"])),
+            "gameDate": self.parse_date(safe_getitem_nested_dict(gameData, ["gameDate"])),
             "homeTeam": safe_getitem_nested_dict(gameData, ["homeTeam", "abbrev"]),
             "awayTeam": safe_getitem_nested_dict(gameData, ["awayTeam", "abbrev"]),
         }
@@ -126,28 +139,27 @@ class JsonParser_v2:
     def parse_date(self, date_str):
         return datetime.datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ").strftime("%Y-%m-%d") if date_str else None
 
-    def extract_play_data(self, play, game_info, rink_side_dict, win_team):
-        period = int(play.get("about", {}).get("period", None))
-        byTeam = play.get("team", {}).get("triCode", None)
-        homeTeam = game_info["homeTeam"]
+    def extract_play_data(self, play, game_info, rink_side_dict, win_team, team_id_to_abbrv):
+        period = int(safe_getitem_nested_dict(play, ["period"]))
+        byTeam = team_id_to_abbrv.get(safe_getitem_nested_dict(play, ["eventOwnerTeamId"]), None)[0]
+        homeTeam = game_info.get("homeTeam", None)
 
         row_data = game_info.copy()
         row_data.update({
             "period": period,
-            "periodTime": play.get("about", {}).get("periodTime", None),
+            "periodTime": safe_getitem_nested_dict(play, ["timeInPeriod"]),
             "byTeam": byTeam,
-            "eventType": play.get("result", {}).get("eventTypeId", None),
+            "eventType": safe_getitem_nested_dict(play, ["typeDescKey"]),
         })
         
-        coordinates = play.get("coordinates", {})
-        coordinateX = coordinates.get("x", None)
-        coordinateY = coordinates.get("y", None)
+        coordinateX = safe_getitem_nested_dict(play, ["details", "xCoord"])
+        coordinateY = safe_getitem_nested_dict(play, ["details", "yCoord"])
 
         row_data["coordinateX"] = coordinateX
         row_data["coordinateY"] = coordinateY
         row_data['winTeam'] = win_team
 
-        self.populate_event_specific_data(play, row_data)
+        self.populate_event_specific_data(play, row_data, team_id_to_abbrv)
 
         # Add rink side information
         if period == 5:
@@ -156,6 +168,47 @@ class JsonParser_v2:
             row_data['rinkSide'] = rink_side_dict.get(period, {}).get('home' if byTeam == homeTeam else 'away', None)
 
         return row_data
+
+    def interpret_situation_code(self, play, team_id_to_abbrv):
+        
+        eventOwnerTeamId_is_home = "home" in team_id_to_abbrv[play["details"]["eventOwnerTeamId"]]        
+        
+        away_goalie_is_on_ice, away_skaters_on_ice, home_skaters_on_ice, home_goalie_is_on_ice = play["situationCode"]
+        
+        if home_skaters_on_ice == away_goalie_is_on_ice:
+            strength = "EVEN"
+        else : 
+            if eventOwnerTeamId_is_home:
+                strength = "PP" if home_skaters_on_ice > away_goalie_is_on_ice else "SH" # Power-Play play or Short-Handed play
+                emptynet = away_skaters_on_ice == 0
+            else:
+                strength = "PP" if away_skaters_on_ice > home_goalie_is_on_ice else "SH"
+                emptynet = home_skaters_on_ice == 0
+        
+        return strength, emptynet
+        
+
+    def populate_event_specific_data(self, play, row_data, team_id_to_abbrv):
+        event_type = row_data["eventType"]
+        event_populate_functions = {
+            "goal": self.populate_goal_data,
+            "shot-on-goal": self.populate_shot_data,
+            "blocked-shot": self.populate_blocked_shot_data,
+            "missed-shot": self.populate_missed_shot_data,
+        }
+        if event_type in event_populate_functions:
+            event_populate_functions[event_type](play, row_data, team_id_to_abbrv)
+
+    def populate_goal_data(self, play, row_data, team_id_to_abbrv):
+        row_data["shotType"] = safe_getitem_nested_dict(play, ["details", "shotType"])
+        strength, emptyNet = self.interpret_situation_code(play, team_id_to_abbrv)
+        row_data["strength"] = strength
+        row_data["emptyNet"] = emptyNet
+        row_data["shooterId"] = safe_getitem_nested_dict(play, ["details", "shootingPlayerId"])
+        row_data["goalieId"] = safe_getitem_nested_dict(play, ["details", "goalieInNetId"])
+
+    def populate_shot_data(self, play, row_data, team_id_to_abbrv):
+        row_data["shotType"] = safe_getitem_nested_dict(play, ["details", "shotType"])
 
 
     def __add__(self, other):
@@ -170,6 +223,7 @@ class JsonParser_v2:
         json_files_to_consider : list[Path],
         shotGoalOnly: bool):
 
+        import pdb; pdb.set_trace()
 
         ROOT_DATA = Path(os.getenv("DATA_FOLDER"))
         OUTPUT_PATH = ROOT_DATA / path_csv_output
@@ -214,8 +268,8 @@ def cli_args():
         '''
     )
     parser.add_argument('-p_csv', '--path_to_csv', type=str, required=True, help='Path to the csv file. WILL BE CONCATENATED WITH the .env\'s DATA_FOLDER var. PUT THE COMMIT ID IN THE NAME !!!!!!!!!!!!!!!!!!!!')
-    parser.add_argument('-y','--years', required=True, nargs='+', type=str, help='years of seasons to iterate on')
-    parser.add_argument('--shotGoalOnly', action='store_true', help='Filter only "GOAL" and "SHOT" events')
+    parser.add_argument('-l_json','--list_json_files', required=True, nargs='+', type=Path, help='list of json files to parse to create the dataframe')
+    parser.add_argument('--shotGoalOnly', action='store_true', help='Filter only "SHOT"-related events')
     parser.add_argument('--comet_dl',default=True, action='store_true', help='Comet : at exp. "json-scrapper-output" push as an artifact the csv file ')
     args = parser.parse_args()
     return args
@@ -234,7 +288,7 @@ if __name__ == "__main__":
 
     parser_obj = JsonParser_v2.load_all_seasons(
         args.path_to_csv,
-        args.years,
+        args.l_json,
         args.shotGoalOnly
     )
 

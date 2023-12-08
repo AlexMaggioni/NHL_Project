@@ -22,7 +22,7 @@ def log_feature_eng_obj(
             'source_raw_data_path' : str(DATA_ENGINEERED_OBJ.RAW_DATA_PATH),
             'version' : DATA_ENGINEERED_OBJ.version,
             'uniq_id' : DATA_ENGINEERED_OBJ.uniq_id,
-            'sqllite_file_path' : DATA_ENGINEERED_OBJ.sqlite_file
+            'sqllite_file_path' : str(DATA_ENGINEERED_OBJ.sqlite_file)
         },
         version_tags=None
     )
