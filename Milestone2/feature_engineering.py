@@ -31,7 +31,8 @@ class NHLFeatureEngineering:
             speed: bool,
             computePowerPlayFeatures: bool,
             GOAL_POSITION: list,
-            version : int
+            version : int,
+            nhl_api_version : int,
         ):
         
         self.RAW_DATA_PATH = RAW_DATA_PATH
@@ -135,9 +136,9 @@ class NHLFeatureEngineering:
 
         self.dfUnify = self.dfUnify.reset_index(drop=True)
 
-
+        self.nhl_api_version = nhl_api_version
         self.version = version
-        self.sqlite_file = Path(os.getenv("DATA_FOLDER")) / 'feature_engineering_output' / ('v'+str(self.version)) / f'info_{self.version}.db'
+        self.sqlite_file = Path(os.getenv("DATA_FOLDER")) / f'v{self.nhl_api_version}_api' / 'feature_engineering_output' / ('v'+str(self.version)) / f'info_{self.version}.db'
         self._save_processed_df()
 
     def _save_processed_df(self):
@@ -186,8 +187,9 @@ class NHLFeatureEngineering:
 
         self.attr_for_reproducibility['id'] = self.path_save_output.name
         self.attr_for_reproducibility['GOAL_POSITION'] = '_'.join(map(str, self.GOAL_POSITION))
+        self.attr_for_reproducibility['src_csv_file'] = self.RAW_DATA_PATH.stem
         
-        db['info'].insert(self.attr_for_reproducibility, pk="id", alter=True, replace=True)
+        db[sqlite_table_to_update].insert(self.attr_for_reproducibility, pk="id", alter=True, replace=True)
         logger.info(f"""SUCCESSFULLY Updated the sqlite database with the newly processed dataframe at 
                     {self.sqlite_file} 
                     adding row with id {self.attr_for_reproducibility['id']}
@@ -267,7 +269,7 @@ class NHLFeatureEngineering:
         '''
         Calculate if the shot was a goal.
         '''
-        return (self.df['eventType'] == 'GOAL').astype(int)
+        return (self.df['eventType'].isin(['GOAL', 'goal'])).astype(int)
 
     def calculatePeriodTimeSeconds(self):
         '''

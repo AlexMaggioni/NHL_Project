@@ -38,7 +38,8 @@ def create_engineered_data_object(
                 speed= DATA_PIPELINE_CONFIG.speed,
                 computePowerPlayFeatures= DATA_PIPELINE_CONFIG.computePowerPlayFeatures,
                 version= version,
-                GOAL_POSITION=GOAL_POSITION
+                GOAL_POSITION=GOAL_POSITION,
+                nhl_api_version= DATA_PIPELINE_CONFIG.NHL_api_version,
             )
     return data_engineered
 

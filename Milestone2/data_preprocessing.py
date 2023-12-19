@@ -34,8 +34,6 @@ class NHL_data_preprocessor:
         encodeLastEventType : bool,        
     ) -> None:
         
-        self.gameType_Testset = df_test["gameType"]
-
         self.df_train = df_train
         self.df_test = df_test
         self.cross_validation_k_fold = cross_validation_k_fold

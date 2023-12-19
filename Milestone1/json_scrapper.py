@@ -217,7 +217,7 @@ class JsonParser:
 
         base_parser.df.to_csv(OUTPUT_PATH, index=False)
         logger.info(f"DataFrame saved to {OUTPUT_PATH}")
-        base_parser.path = OUTPUT_PATH
+        base_parser.output_path = OUTPUT_PATH
         return base_parser
     
     def log_csv_as_artifact(self):
@@ -229,7 +229,7 @@ class JsonParser:
         )
 
         art = Artifact(
-            Path(self.path).stem,
+            Path(self.output_path).stem,
             'json-scrapper-output',
             metadata={
                 'columns': list(self.df.columns),
@@ -239,7 +239,7 @@ class JsonParser:
             }
         )
 
-        art.add(self.path)
+        art.add(self.output_path)
         experiment.log_artifact(art)
         experiment.end()
 

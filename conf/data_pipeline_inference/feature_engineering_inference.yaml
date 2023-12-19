@@ -8,15 +8,15 @@ isGoal: True
 emptyNet: True
 verbose: True
 imputeRinkSide: True
-periodTimeSeconds: True
-lastEvent: True
-lastCoordinates: True
-timeElapsed: True
-distanceFromLastEvent: True
-rebound: True
-changeAngle: True
-speed: True
-computePowerPlayFeatures: True
+periodTimeSeconds: False
+lastEvent: False
+lastCoordinates: False
+timeElapsed: False
+distanceFromLastEvent: False
+rebound: False
+changeAngle: False
+speed: False
+computePowerPlayFeatures: False
 
 # version of the Feature Engineering pipeline
 # will determine in which subdir of data/feature_engineering_outpout/ the engineered data will be saved
@@ -25,7 +25,7 @@ feature_engineering_version: 1
 # path to load feature-engineered data from (avoid to recompute all proocessing That can be long)
 # path must be relative to ROOT DIRECTORY specified by env var DATA_FOLDER in .env file
 # if None, feature engineering will be recomputed
-load_engineered_data_from: feature_engineering_output/v1/raw_data_2016_2020_b15700b/103/df_Unify.csv
+load_engineered_data_from: null
 
 
 # vous pouvez approximer le filet en un seul point (c'est-à-dire que vous n'avez pas
@@ -34,4 +34,4 @@ load_engineered_data_from: feature_engineering_output/v1/raw_data_2016_2020_b157
 GOAL_POSITION_X: 89
 GOAL_POSITION_Y: 0
 
-NHL_api_version : 1
+NHL_api_version : 2

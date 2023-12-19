@@ -135,18 +135,18 @@ def plot_referential_differences(
     fig.update_layout(height=600, width=800, title_text="Side By Side Subplots")
     fig.show()
 
+def safe_int_casting(x):
+    return int(x) if x is not None else None
 
 def is_not_nested_dict(d):
     return not isinstance(d, dict) or not any(isinstance(i, dict) for i in d.values())
 
 def safe_getitem_nested_dict(dict, list_key, leaf_value_default=None):
-    print(dict.keys(), list_key, len(list_key), leaf_value_default)
     if is_not_nested_dict(dict) or len(list_key) == 1:
-        print('not nested dict')
-        print(dict, list_key, leaf_value_default)
-        print('toto  ', dict.get(list_key[0], leaf_value_default))
         return dict.get(list_key[0], leaf_value_default)
     else:
+        if list_key[0] not in dict:
+            return leaf_value_default
         return safe_getitem_nested_dict(dict[list_key[0]], list_key[1:], leaf_value_default)
 
 def generate_url_path(*parts, use_posix=False):
