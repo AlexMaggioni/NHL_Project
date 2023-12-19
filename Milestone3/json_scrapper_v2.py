@@ -192,6 +192,7 @@ class JsonParser_v2:
         json_files_to_consider : list[Path],
         shotGoalOnly: bool):
 
+        import pdb; pdb.set_trace()
 
         ROOT_DATA = Path(os.getenv("DATA_FOLDER"))
         OUTPUT_PATH = ROOT_DATA / path_csv_output
