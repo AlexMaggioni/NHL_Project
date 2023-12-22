@@ -1,0 +1,21 @@
+FROM python:3.9
+ARG STREAMLIT_ADDRESS=0.0.0.0
+ENV STREAMLIT_ADDRESS=${STREAMLIT_ADDRESS}
+ARG STREAMLIT_PORT=1234
+ENV STREAMLIT_PORT=${STREAMLIT_PORT}
+
+WORKDIR /code
+
+# Add files
+COPY ./ift6758/ ./ift6758/
+COPY ./streamlit_app.py ./streamlit_app.py
+
+# install libs
+RUN pip install --upgrade pip
+RUN pip install -r ./ift6758/requirements.txt
+RUN pip install -e ./ift6758/
+
+CMD streamlit run streamlit_app.py --server.port ${STREAMLIT_PORT} --server.address ${STREAMLIT_ADDRESS}
+
+# expose ports
+EXPOSE ${STREAMLIT_PORT}

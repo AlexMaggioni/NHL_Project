@@ -8,7 +8,7 @@ from tqdm import tqdm
 import datetime
 import os
 
-from utils.misc import init_logger, verify_dotenv_file, safe_getitem_nested_dict, safe_int_casting
+from .misc import safe_getitem_nested_dict, safe_int_casting
 
 class JsonParser_v2:
     """
@@ -192,14 +192,12 @@ class JsonParser_v2:
         json_files_to_consider : list[Path],
         shotGoalOnly: bool):
 
-        import pdb; pdb.set_trace()
-
         ROOT_DATA = Path(os.getenv("DATA_FOLDER"))
         OUTPUT_PATH = ROOT_DATA / path_csv_output
         
         if os.path.exists(OUTPUT_PATH):
             df = pd.read_csv(OUTPUT_PATH, parse_dates=["gameDate"])
-            logger.info(f"SKIPPING SCRAPPING >>> DataFrame loaded from {OUTPUT_PATH}")
+            print(f"SKIPPING SCRAPPING >>> DataFrame loaded from {OUTPUT_PATH}")
             res = JsonParser_v2(df=df)
             res.output_path = OUTPUT_PATH
             return res
@@ -214,7 +212,7 @@ class JsonParser_v2:
                 pbar1.update(1)
 
         base_parser.df.to_csv(OUTPUT_PATH, index=False)
-        logger.info(f"DataFrame saved to {OUTPUT_PATH}")
+        print(f"DataFrame saved to {OUTPUT_PATH}")
         base_parser.output_path = OUTPUT_PATH
         return base_parser
 
@@ -269,14 +267,6 @@ def cli_args():
     args = parser.parse_args()
     return args
 
-
-# Add the parent directory to sys.path
-parent_dir = Path(__file__).parent.parent
-
-from utils.misc  import init_logger, verify_dotenv_file
-
-verify_dotenv_file(parent_dir)
-logger = init_logger("json_scrapper.log")
 
 if __name__ == "__main__":
 

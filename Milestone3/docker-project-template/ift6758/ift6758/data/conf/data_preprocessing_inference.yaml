@@ -1,0 +1,75 @@
+# PERCENTAGE OF TRAINING DATA TAKEN AS VALIDATION DATA
+# 2  ---->  50.0 % in train set
+# 3  ---->  66.66666666666666 % in train set
+# 4  ---->  75.0 % in train set
+# 5  ---->  80.0 % in train set
+# 6  ---->  83.33333333333334 % in train set
+# 7  ---->  85.71268990169794 % in train set
+# 8  ---->  87.5 % in train set
+# 9  ---->  88.88739946380697 % in train set
+# 10  ---->  90.0 % in train set
+K_Fold : 5
+
+# SHUFFLE THE DATA BEFORE SPLITTING
+shuffle_before_splitting : true
+
+seed : 42
+
+label : 
+  - isGoal
+
+predicate_train_test_split : 'season == 2020'
+
+
+dropNaCoordinates : False  
+imputeNaSpeed : False
+encodeGameDate : False
+encodeShooterId : False
+encodeGoalieId : False
+encodeByTeam : False
+encodeGameType : False # FS_tree_based
+encodeShotType : False # FS_tree_based
+encodeStrength : False # FS_tree_based
+encodeLastEventType : False # FS_tree_based
+
+columns_to_drop :
+  - gameId
+  - season            
+  - homeTeam
+  - awayTeam
+  - periodTime
+  # - eventType # NEEDED TO ONLY RETRIEVE SHOT&GOAL PLAYS
+  - rinkSide
+  # - shooter
+  # - goalie            
+  # - penaltySeverity
+  # - penaltyMinutes
+  # - penalizedTeam
+  # - winTeam
+
+  # - gameType     
+  # - strength
+  # - rebound
+  # - changeAngle
+  # - lastEventType
+  # - awaySkaters
+  # - homeSkaters
+  # - elapsedPowerPlay
+  # - shotType
+
+# "gameDate"
+# "period"
+# "byTeam"
+# "coordinateX"
+# "coordinateY"
+# "shooterId"
+# "goalieId"
+# "emptyNet"
+# "distanceToGoal"
+# "angleToGoal"
+# "periodTimeSeconds"
+# "lastCoordinateX"
+# "lastCoordinateY"
+# "timeElapsed"
+# "distanceFromLastEvent"
+# "speed"

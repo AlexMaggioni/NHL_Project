@@ -8,18 +8,14 @@ gunicorn can be installed via:
     $ pip install gunicorn
 
 """
-from datetime import timedelta
 import os
 from pathlib import Path
 import logging
-import comet_ml
 from flask import Flask, jsonify, request
-import sklearn
 import pandas as pd
-import joblib, random
-import numpy as np
+import joblib
 
-from utils.backend import CometMLClient
+from utils import CometMLClient
 
 LOG_FILE = os.environ.get("FLASK_LOG", Path(__name__).parent / "backend_logs")
 ROOT_LOCAL_MODEL_PATH = os.environ.get("LOCAL_MODEL_PATH", Path(__name__).parent / "downloaded_models")
@@ -82,6 +78,15 @@ def logs():
         logs = f.readlines()
     response = logs
     return jsonify(response)  # response must be json serializable!
+
+@app.route("/actual_model", methods=["GET"])
+def actual_model():
+    """Returns the name of the model currently loaded"""
+    global ACTUAL_MODEL_PATH
+    response = {
+        "model_name": ACTUAL_MODEL_PATH,
+    }
+    return jsonify(response)
 
 
 @app.route("/download_registry_model", methods=["POST"])
@@ -172,7 +177,7 @@ def predict():
 
     app.logger.info(f'Predicting on {len(data)} samples, with {data.columns} features')
 
-    prob_preds = model.predict_proba(data)
+    prob_preds = model.predict_proba(data)[:,1]
     preds = model.predict(data)
 
     response = {

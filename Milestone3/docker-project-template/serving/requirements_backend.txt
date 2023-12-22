@@ -1,0 +1,6 @@
+comet_ml
+Flask
+pandas
+gunicorn
+joblib
+scikit-learn

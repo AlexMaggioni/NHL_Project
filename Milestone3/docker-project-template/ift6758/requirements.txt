@@ -1,0 +1,13 @@
+numpy
+pandas
+requests
+tqdm
+setuptools
+scikit-learn
+comet_ml
+streamlit
+omegaconf
+rich
+loguru
+pregex
+sqlite-utils

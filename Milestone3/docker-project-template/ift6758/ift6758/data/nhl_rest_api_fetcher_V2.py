@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Dict, Tuple
 import os
 import urllib
-from Milestone1.nhl_rest_api_fetcher import Base_Fetcher
+from .nhl_rest_api_fetcher import Base_Fetcher
 
 from pregex.core.quantifiers import Optional
 from pregex.core.groups import Capture
