@@ -1,7 +1,7 @@
 # NHL Data Science Project
 
 Authors:
-*	Loic MANDINE
+*	Loic Mandine
 *	Alex Maggioni
 
 # Repo Filetree Structure
