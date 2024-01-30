@@ -1,6 +1,6 @@
 # NHL Data Science Project
 
-Equipe A07:
+Authors:
 *	Loic MANDINE
 *	Alex Maggioni
 
